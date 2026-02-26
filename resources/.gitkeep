@@ -1,0 +1,11 @@
+# Resources Directory
+
+Place your app icon here:
+- icon.icns (macOS)
+- icon.ico (Windows)
+- icon.png (Linux, 512x512)
+
+You can generate icons from a source PNG using tools like:
+- electron-icon-maker
+- iconutil (macOS)
+- ImageMagick

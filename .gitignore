@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+release/
+
+# Database
+data/
+*.db
+
+# Drizzle
+drizzle/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Config files with secrets
+config.json
+auth_config.json
+
+# TypeScript cache
+*.tsbuildinfo
