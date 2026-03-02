@@ -172,7 +172,6 @@ export interface IpcApi {
       userName?: string;
       apiKey?: string;
       apiUrl?: string;
-      webhookUrl?: string;
     }>;
     getServerPort: () => Promise<number>;
     logout: () => Promise<void>;

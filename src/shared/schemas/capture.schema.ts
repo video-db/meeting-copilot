@@ -1,9 +1,7 @@
 import { z } from 'zod';
 
 export const CreateCaptureSessionInputSchema = z.object({
-  callbackUrl: z.string().optional(),
   metadata: z.record(z.unknown()).optional(),
-  wsConnectionId: z.string().optional(),
 });
 
 export const CaptureSessionSchema = z.object({
@@ -11,7 +9,6 @@ export const CaptureSessionSchema = z.object({
   collectionId: z.string(),
   endUserId: z.string(),
   status: z.string(),
-  callbackUrl: z.string(),
 });
 
 export const StartTranscriptionInputSchema = z.object({

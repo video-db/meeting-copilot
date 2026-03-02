@@ -25,5 +25,3 @@ export type RecordingsGetOutput = RouterOutput['recordings']['get'];
 
 export type TranscriptionStartInput = RouterInput['transcription']['start'];
 export type TranscriptionStartOutput = RouterOutput['transcription']['start'];
-
-export type TunnelStatusOutput = RouterOutput['tunnel']['status'];

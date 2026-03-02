@@ -6,7 +6,6 @@ interface ConfigState {
   userName: string | null;
   apiKey: string | null;
   apiUrl: string | null;
-  webhookUrl: string | null;
 
   setAuth: (accessToken: string, userName: string, apiKey: string) => void;
   setConfig: (config: Partial<ConfigState>) => void;
@@ -21,7 +20,6 @@ export const useConfigStore = create<ConfigState>()(
       userName: null,
       apiKey: null,
       apiUrl: null,
-      webhookUrl: null,
 
       setAuth: (accessToken, userName, apiKey) => {
         set({ accessToken, userName, apiKey });

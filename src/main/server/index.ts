@@ -4,7 +4,6 @@ import { trpcServer } from '@hono/trpc-server';
 import { serve } from '@hono/node-server';
 import { appRouter } from './trpc/router';
 import { createContext } from './trpc/context';
-import { webhookRouter } from './routes/webhook';
 import { createChildLogger } from '../lib/logger';
 
 const logger = createChildLogger('http-server');
@@ -41,9 +40,6 @@ export function createServer(port: number) {
       createContext: async (_opts, c) => createContext(c),
     })
   );
-
-  // Webhook routes (raw Hono, not tRPC)
-  app.route('/api', webhookRouter);
 
   return app;
 }

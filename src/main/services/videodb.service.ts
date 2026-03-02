@@ -87,33 +87,25 @@ export class VideoDBService {
 
   async createCaptureSession(params: {
     endUserId: string;
-    callbackUrl?: string;
     metadata?: Record<string, unknown>;
-    wsConnectionId?: string;
   }): Promise<{
     sessionId: string;
     collectionId: string;
     endUserId: string;
     status: string;
-    callbackUrl: string;
   }> {
     const conn = this.getConnection();
 
-    logger.info({ endUserId: params.endUserId, callbackUrl: params.callbackUrl }, 'Creating capture session');
+    logger.info({ endUserId: params.endUserId }, 'Creating capture session');
 
     const collection = await conn.getCollection();
 
     const sessionOptions: {
       endUserId: string;
-      callbackUrl?: string;
       metadata?: Record<string, unknown>;
     } = {
       endUserId: params.endUserId,
     };
-
-    if (params.callbackUrl) {
-      sessionOptions.callbackUrl = params.callbackUrl;
-    }
 
     if (params.metadata) {
       sessionOptions.metadata = params.metadata;
@@ -128,7 +120,6 @@ export class VideoDBService {
       collectionId: collection.id,
       endUserId: params.endUserId,
       status: 'created',
-      callbackUrl: params.callbackUrl || '',
     };
   }
 

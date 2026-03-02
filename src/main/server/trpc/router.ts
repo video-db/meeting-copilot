@@ -1,6 +1,6 @@
 import { router } from './trpc';
 import { authRouter } from './procedures/auth';
-import { configRouter, tunnelRouter } from './procedures/config';
+import { configRouter } from './procedures/config';
 import { tokenRouter } from './procedures/token';
 import { captureRouter } from './procedures/capture';
 import { recordingsRouter } from './procedures/recordings';
@@ -10,7 +10,6 @@ import { settingsRouter } from './procedures/settings';
 export const appRouter = router({
   auth: authRouter,
   config: configRouter,
-  tunnel: tunnelRouter,
   token: tokenRouter,
   capture: captureRouter,
   recordings: recordingsRouter,

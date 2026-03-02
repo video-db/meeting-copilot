@@ -54,13 +54,6 @@ export function getNodeModulesBinaryDir(moduleName: string, binaryDir: string): 
 }
 
 /**
- * Get the cloudflared binary path
- */
-export function getCloudflaredBinaryPath(): string {
-  return getNodeModulesBinaryPath('cloudflared', 'bin/cloudflared');
-}
-
-/**
  * Get the videodb recorder binary path
  */
 export function getVideoDBRecorderPath(): string {

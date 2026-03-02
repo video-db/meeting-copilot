@@ -14,7 +14,6 @@ export function setupAppHandlers(): void {
       userName?: string;
       apiKey?: string;
       apiUrl?: string;
-      webhookUrl?: string;
     }> => {
       const appConfig = loadAppConfig();
       const runtimeConfig = loadRuntimeConfig();
@@ -24,7 +23,6 @@ export function setupAppHandlers(): void {
         userName: appConfig.userName,
         apiKey: appConfig.apiKey,
         apiUrl: runtimeConfig.apiUrl,
-        webhookUrl: runtimeConfig.webhookUrl,
       };
     }
   );

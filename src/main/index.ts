@@ -3,7 +3,6 @@ import path from 'path';
 import fs from 'fs';
 import { initDatabase, closeDatabase } from './db';
 import { startServer, stopServer } from './server';
-import { getTunnelService } from './services/tunnel.service';
 import {
   setupIpcHandlers,
   removeIpcHandlers,
@@ -203,16 +202,7 @@ async function startServices(): Promise<void> {
   initDatabase();
 
   const actualPort = await startServer(port);
-
-  logger.info({ port: actualPort }, '🚇 About to start tunnel service...');
-  try {
-    const tunnelService = getTunnelService(actualPort);
-    logger.info('🚇 Got tunnel service instance, calling start()...');
-    const tunnelStatus = await tunnelService.start();
-    logger.info({ tunnelStatus }, '🚇 Tunnel service start() completed');
-  } catch (tunnelError) {
-    logger.error({ error: tunnelError }, '❌ Tunnel startup threw an exception');
-  }
+  logger.info({ port: actualPort }, 'HTTP server started');
 
   // Initialize MCP orchestrator and connect to auto-connect servers
   logger.info('🔌 Initializing MCP Connection Orchestrator...');
@@ -246,9 +236,6 @@ async function stopServices(): Promise<void> {
   } catch (mcpError) {
     logger.error({ error: mcpError }, '❌ MCP Orchestrator shutdown failed');
   }
-
-  const tunnelService = getTunnelService(0);
-  await tunnelService.stop();
 
   await stopServer();
 

@@ -4,7 +4,7 @@ import { connect } from 'videodb';
 import type { WebSocketConnection, WebSocketMessage } from 'videodb';
 import type { Channel } from '../../shared/schemas/capture.schema';
 import type { RecorderEvent, TranscriptEvent, StartRecordingParams } from '../../shared/types/ipc.types';
-import { registerSessionUser } from '../server/routes/webhook';
+import { registerSessionUser, setupSessionWebSocket, cleanupSessionWebSocket } from '../services/session-events.service';
 import { createChildLogger } from '../lib/logger';
 import { applyVideoDBPatches } from '../lib/videodb-patch';
 
@@ -264,6 +264,12 @@ export function setupCaptureHandlers(): void {
       try {
         registerSessionUser(config.sessionId, accessToken);
 
+        // Set up session WebSocket for capture_session events (exported, etc.)
+        const sessionWsId = await setupSessionWebSocket(sessionToken, apiUrl);
+        if (sessionWsId) {
+          logger.info({ sessionWsId }, '[WS] Session WebSocket connected for capture events');
+        }
+
         let wsConnectionIds: { micWsId: string | null; sysAudioWsId: string | null } | null = null;
         if (enableTranscription) {
           wsConnectionIds = await setupTranscriptWebSockets(sessionToken, apiUrl);
@@ -391,6 +397,7 @@ export function setupCaptureHandlers(): void {
         const errorStack = error instanceof Error ? error.stack : undefined;
         logger.error({ err: error, errorMessage, errorStack }, 'Failed to start recording');
         await cleanupTranscriptWebSockets();
+        await cleanupSessionWebSocket();
         cleanupCapture();
         return {
           success: false,
@@ -433,11 +440,13 @@ export function setupCaptureHandlers(): void {
         }
 
         await cleanupTranscriptWebSockets();
+        await cleanupSessionWebSocket();
 
         return { success: true };
       } catch (error) {
         logger.error({ error }, 'Failed to stop recording');
         await cleanupTranscriptWebSockets();
+        await cleanupSessionWebSocket();
         cleanupCapture();
         return {
           success: false,
@@ -570,6 +579,7 @@ export async function cleanupCaptureAsync(): Promise<void> {
 
 export async function shutdownCaptureClient(): Promise<void> {
   await cleanupTranscriptWebSockets();
+  await cleanupSessionWebSocket();
 
   if (captureClient) {
     logger.info('Shutting down CaptureClient before app quit');
