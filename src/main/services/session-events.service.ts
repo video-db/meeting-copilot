@@ -1,25 +1,11 @@
 import { connect } from 'videodb';
 import type { WebSocketConnection } from 'videodb';
 import { createChildLogger } from '../lib/logger';
-import { updateRecordingBySessionId, getUserByAccessToken } from '../db';
-import { createInsightsService } from './insights.service';
 
 const logger = createChildLogger('session-events');
 
 let sessionWebSocket: WebSocketConnection | null = null;
 let sessionListenerActive = false;
-
-// Map session IDs to access tokens for user lookup when export completes
-const sessionUserMap = new Map<string, string>();
-
-/**
- * Register a session with its user's access token.
- * Called when recording starts so we can look up the user when export completes.
- */
-export function registerSessionUser(sessionId: string, accessToken: string): void {
-  sessionUserMap.set(sessionId, accessToken);
-  logger.debug({ sessionId }, 'Registered session user mapping');
-}
 
 /**
  * Set up WebSocket connection to receive capture session lifecycle events.
@@ -78,10 +64,13 @@ async function listenForSessionEvents(ws: WebSocketConnection): Promise<void> {
 
       logger.info({ event, sessionId, status }, '[SessionWS] Session event received');
 
+      // Note: We no longer rely on WebSocket for export detection.
+      // Export completion is handled by the export-poller.service.ts which polls the API.
+      // These events are kept for informational logging only.
       switch (event) {
         case 'capture_session.exported': {
-          logger.info({ sessionId, data }, '[SessionWS] Processing capture_session.exported');
-          await handleCaptureSessionExported(sessionId, data);
+          // Informational only - actual handling is done by export poller
+          logger.info({ sessionId, data }, '[SessionWS] Received capture_session.exported (handled by poller)');
           break;
         }
 
@@ -96,7 +85,7 @@ async function listenForSessionEvents(ws: WebSocketConnection): Promise<void> {
         }
 
         case 'capture_session.stopped': {
-          logger.info({ sessionId }, '[SessionWS] Capture session stopped, waiting for export');
+          logger.info({ sessionId }, '[SessionWS] Capture session stopped, export poller will detect completion');
           break;
         }
 
@@ -126,113 +115,6 @@ async function listenForSessionEvents(ws: WebSocketConnection): Promise<void> {
       logger.error({ error: err }, '[SessionWS] Error in session event listener');
     }
   }
-}
-
-/**
- * Handle the capture_session.exported event.
- * Updates the recording with video info and triggers insights processing.
- */
-async function handleCaptureSessionExported(
-  sessionId: string,
-  data: Record<string, unknown>
-): Promise<void> {
-  logger.info({ sessionId, data }, '[SessionWS] handleCaptureSessionExported called');
-
-  if (!data) {
-    logger.warn({ sessionId }, '[SessionWS] No data in capture_session.exported event');
-    return;
-  }
-
-  logger.info({ sessionId, dataKeys: Object.keys(data) }, '[SessionWS] Data keys available');
-
-  // Extract video info from the event data
-  const videoId = data.exported_video_id as string | undefined;
-  const streamUrl = data.stream_url as string | undefined;
-  const playerUrl = data.player_url as string | undefined;
-  const duration = data.duration as number | undefined;
-
-  logger.info(
-    { sessionId, videoId, streamUrl, playerUrl, duration },
-    '[SessionWS] Extracted data from payload'
-  );
-
-  if (!videoId) {
-    logger.warn(
-      { sessionId, data },
-      '[SessionWS] No exported_video_id in capture_session.exported event'
-    );
-    return;
-  }
-
-  logger.info({ sessionId, videoId }, '[SessionWS] Processing capture session export');
-
-  const recording = updateRecordingBySessionId(sessionId, {
-    videoId,
-    streamUrl: streamUrl || null,
-    playerUrl: playerUrl || null,
-    duration: duration || null,
-    status: 'available',
-    insightsStatus: 'pending',
-  });
-
-  if (!recording) {
-    logger.warn({ sessionId }, '[SessionWS] Recording not found for session');
-    return;
-  }
-
-  logger.info(
-    {
-      recordingId: recording.id,
-      videoId,
-      status: recording.status,
-      insightsStatus: recording.insightsStatus,
-    },
-    '[SessionWS] Recording updated with video info'
-  );
-
-  const accessToken = sessionUserMap.get(sessionId);
-  logger.info(
-    {
-      sessionId,
-      hasAccessToken: !!accessToken,
-      sessionUserMapSize: sessionUserMap.size,
-    },
-    '[SessionWS] Looking up user for session'
-  );
-
-  if (!accessToken) {
-    logger.warn({ sessionId }, '[SessionWS] No user mapping found for session, skipping insights');
-    return;
-  }
-
-  const user = getUserByAccessToken(accessToken);
-  if (!user) {
-    logger.warn({ sessionId }, '[SessionWS] User not found for session, skipping insights');
-    return;
-  }
-
-  logger.info(
-    { sessionId, userId: user.id, userName: user.name },
-    '[SessionWS] Starting insights processing'
-  );
-
-  const insightsService = createInsightsService(user.apiKey);
-
-  // Fire and forget - don't await
-  insightsService
-    .processRecording(recording.id, videoId)
-    .then((result) => {
-      logger.info({ recordingId: recording.id, result }, '[SessionWS] Insights processing completed');
-    })
-    .catch((error) => {
-      logger.error(
-        { error, recordingId: recording.id },
-        '[SessionWS] Background insights processing failed'
-      );
-    });
-
-  sessionUserMap.delete(sessionId);
-  logger.info({ sessionId }, '[SessionWS] Session user mapping cleaned up');
 }
 
 /**

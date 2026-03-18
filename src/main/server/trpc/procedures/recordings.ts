@@ -19,6 +19,8 @@ import {
   getRecordingById,
 } from '../../../db';
 import { createChildLogger } from '../../../lib/logger';
+import { loadRuntimeConfig } from '../../../lib/config';
+import { checkAndRecoverSession } from '../../../services/recording-export.service';
 
 const logger = createChildLogger('recordings-procedure');
 
@@ -154,17 +156,47 @@ export const recordingsRouter = router({
 
   cleanupStale: protectedProcedure
     .input(z.object({ maxAgeMinutes: z.number().default(30) }))
-    .output(z.object({ cleaned: z.number() }))
-    .mutation(async ({ input }) => {
+    .output(z.object({ cleaned: z.number(), recovered: z.number() }))
+    .mutation(async ({ input, ctx }) => {
       logger.info({ maxAgeMinutes: input.maxAgeMinutes }, 'Cleaning up stale recordings');
 
       const recordings = getAllRecordings();
       const now = Date.now();
       const maxAgeMs = input.maxAgeMinutes * 60 * 1000;
       let cleaned = 0;
+      let recovered = 0;
 
-      for (const recording of recordings) {
-        // Only clean up recordings that are stuck AND have no useful data
+      const apiKey = ctx.user?.apiKey;
+      const runtimeConfig = loadRuntimeConfig();
+      const apiUrl = runtimeConfig.apiUrl;
+
+      // Try to recover processing recordings from VideoDB
+      if (apiKey) {
+        const processingRecordings = recordings.filter(
+          r => r.status === 'processing' && !r.videoId
+        );
+
+        for (const recording of processingRecordings) {
+          const result = await checkAndRecoverSession(
+            recording.sessionId,
+            apiKey,
+            apiUrl,
+            true // trigger insights
+          );
+
+          if (result.exported && result.success) {
+            recovered++;
+            logger.info(
+              { recordingId: recording.id, sessionId: recording.sessionId, videoId: result.videoId },
+              'Recording recovered'
+            );
+          }
+        }
+      }
+
+      // Mark truly stale recordings as failed
+      const updatedRecordings = getAllRecordings();
+      for (const recording of updatedRecordings) {
         if ((recording.status === 'processing' || recording.status === 'recording') && !recording.callSummary) {
           const createdAt = new Date(recording.createdAt).getTime();
           const age = now - createdAt;
@@ -180,7 +212,7 @@ export const recordingsRouter = router({
         }
       }
 
-      logger.info({ cleaned }, 'Stale recordings cleanup complete');
-      return { cleaned };
+      logger.info({ cleaned, recovered }, 'Stale recordings cleanup complete');
+      return { cleaned, recovered };
     }),
 });

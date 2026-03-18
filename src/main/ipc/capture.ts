@@ -4,9 +4,12 @@ import { connect } from 'videodb';
 import type { WebSocketConnection, WebSocketMessage } from 'videodb';
 import type { Channel } from '../../shared/schemas/capture.schema';
 import type { RecorderEvent, TranscriptEvent, StartRecordingParams } from '../../shared/types/ipc.types';
-import { registerSessionUser, setupSessionWebSocket, cleanupSessionWebSocket } from '../services/session-events.service';
+import { setupSessionWebSocket, cleanupSessionWebSocket } from '../services/session-events.service';
+import { startExportPoller, stopExportPoller, stopAllExportPollers } from '../services/export-poller.service';
 import { createChildLogger } from '../lib/logger';
 import { applyVideoDBPatches } from '../lib/videodb-patch';
+import { loadAppConfig, loadRuntimeConfig } from '../lib/config';
+import { getUserByAccessToken } from '../db';
 
 const logger = createChildLogger('ipc-capture');
 
@@ -26,6 +29,12 @@ const captureEventHandlers: {
 let micWebSocket: WebSocketConnection | null = null;
 let sysAudioWebSocket: WebSocketConnection | null = null;
 let transcriptListenerActive = false;
+
+// Track current session for export polling
+let currentSessionId: string | null = null;
+let currentApiKey: string | null = null;
+let currentAccessToken: string | null = null;
+let currentApiUrl: string | undefined = undefined;
 
 function ensureVideoDBPatched(): void {
   if (!app.isPackaged) return;
@@ -262,9 +271,7 @@ export function setupCaptureHandlers(): void {
       logger.info({ sessionId: config.sessionId, enableTranscription }, 'Starting recording - IPC handler called');
 
       try {
-        registerSessionUser(config.sessionId, accessToken);
-
-        // Set up session WebSocket for capture_session events (exported, etc.)
+        // Set up session WebSocket for capture_session events (informational logging)
         const sessionWsId = await setupSessionWebSocket(sessionToken, apiUrl);
         if (sessionWsId) {
           logger.info({ sessionWsId }, '[WS] Session WebSocket connected for capture events');
@@ -360,10 +367,6 @@ export function setupCaptureHandlers(): void {
           throw new Error('No capture channels available. Check permissions.');
         }
 
-        if (captureChannels.length === 0) {
-          throw new Error('No capture channels available. Check permissions.');
-        }
-
         logger.info({ captureChannels }, 'Starting capture with channels');
         try {
           await captureClient.startSession({
@@ -385,6 +388,15 @@ export function setupCaptureHandlers(): void {
           data: { sessionId: config.sessionId },
         });
         logger.info({ sessionId: config.sessionId }, 'recording:started event emitted');
+
+        // Store session info for export polling when recording stops
+        currentSessionId = config.sessionId;
+        currentAccessToken = accessToken;
+        currentApiUrl = apiUrl;
+
+        // Get API key from user record for export polling
+        const user = getUserByAccessToken(accessToken);
+        currentApiKey = user?.apiKey || null;
 
         return {
           success: true,
@@ -411,6 +423,12 @@ export function setupCaptureHandlers(): void {
     'recorder-stop-recording',
     async (): Promise<{ success: boolean; error?: string }> => {
       logger.info('Stopping recording');
+
+      // Capture session info before cleanup
+      const sessionIdForPoller = currentSessionId;
+      const apiKeyForPoller = currentApiKey;
+      const accessTokenForPoller = currentAccessToken;
+      const apiUrlForPoller = currentApiUrl;
 
       try {
         if (captureClient) {
@@ -442,12 +460,39 @@ export function setupCaptureHandlers(): void {
         await cleanupTranscriptWebSockets();
         await cleanupSessionWebSocket();
 
+        // Start export poller to detect when video is ready
+        // This replaces the unreliable WebSocket-based approach
+        if (sessionIdForPoller && apiKeyForPoller && accessTokenForPoller) {
+          logger.info({ sessionId: sessionIdForPoller }, 'Starting export poller');
+          startExportPoller(
+            sessionIdForPoller,
+            apiKeyForPoller,
+            accessTokenForPoller,
+            apiUrlForPoller
+          );
+        } else {
+          logger.warn('Missing session info for export poller');
+        }
+
+        // Clear stored session info
+        currentSessionId = null;
+        currentApiKey = null;
+        currentAccessToken = null;
+        currentApiUrl = undefined;
+
         return { success: true };
       } catch (error) {
         logger.error({ error }, 'Failed to stop recording');
         await cleanupTranscriptWebSockets();
         await cleanupSessionWebSocket();
         cleanupCapture();
+
+        // Clear stored session info on error too
+        currentSessionId = null;
+        currentApiKey = null;
+        currentAccessToken = null;
+        currentApiUrl = undefined;
+
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -580,6 +625,15 @@ export async function cleanupCaptureAsync(): Promise<void> {
 export async function shutdownCaptureClient(): Promise<void> {
   await cleanupTranscriptWebSockets();
   await cleanupSessionWebSocket();
+
+  // Stop all export pollers
+  stopAllExportPollers();
+
+  // Clear session tracking
+  currentSessionId = null;
+  currentApiKey = null;
+  currentAccessToken = null;
+  currentApiUrl = undefined;
 
   if (captureClient) {
     logger.info('Shutting down CaptureClient before app quit');

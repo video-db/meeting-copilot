@@ -98,7 +98,9 @@ declare module 'videodb' {
     endUserId?: string;
     callbackUrl?: string;
     metadata?: Record<string, unknown>;
+    exportedVideoId?: string;
     rtstreams: RTStream[];
+    createdAt?: number;
     refresh(): Promise<void>;
     getRTStream(category: RTStreamCategory): RTStream[];
   }
