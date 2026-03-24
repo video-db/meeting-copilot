@@ -93,19 +93,8 @@ function PermissionToggle({ enabled, onClick }: { enabled: boolean; onClick?: ()
   );
 }
 
-// Step indicators for permissions (4 steps)
-function PermissionStepIndicators() {
-  return (
-    <div className="flex gap-[6px] items-center justify-center">
-      <div className="w-[24px] h-[6px] bg-[#ec5b16] rounded-[3px]" />
-      <div className="size-[6px] bg-[#e0e0e8] rounded-[3px]" />
-      <div className="size-[6px] bg-[#e0e0e8] rounded-[3px]" />
-      <div className="size-[6px] bg-[#e0e0e8] rounded-[3px]" />
-    </div>
-  );
-}
 
-function PermissionsView() {
+function PermissionsView({ onContinue }: { onContinue: () => void }) {
   const { status, requestMicPermission, openSettings, checkPermissions } = usePermissions();
   const configStore = useConfigStore();
 
@@ -113,11 +102,12 @@ function PermissionsView() {
 
   const handleContinue = () => {
     if (allGranted) {
-      // Move to next step (calendar setup)
+      onContinue();
     }
   };
 
   const handleSkip = () => {
+    // Skip entire onboarding - user can configure permissions later from settings
     configStore.completeOnboarding();
   };
 
@@ -144,7 +134,7 @@ function PermissionsView() {
 
       {/* Step indicators */}
       <div className="absolute top-[32px] left-1/2 -translate-x-1/2">
-        <PermissionStepIndicators />
+        <StepIndicators currentStep={1} totalSteps={4} />
       </div>
 
       {/* Main content */}
@@ -512,7 +502,7 @@ export function App() {
   const sessionStore = useSessionStore();
   const meetingSetupStore = useMeetingSetupStore();
   const { status: sessionStatus, startRecording, stopRecording } = useSession();
-  const { allGranted, loading: permissionsLoading } = usePermissions();
+  const { allGranted, loading: permissionsLoading, checkPermissions } = usePermissions();
 
   // Global listener for recorder events - persists during navigation
   useGlobalRecorderEvents();
@@ -676,7 +666,7 @@ export function App() {
 
     // Step 1: Permissions
     if (!allGranted && activeTab === 'home') {
-      return <PermissionsView />;
+      return <PermissionsView onContinue={checkPermissions} />;
     }
 
     // Step 2: Calendar setup (only on home tab and during onboarding)

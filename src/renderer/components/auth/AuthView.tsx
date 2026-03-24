@@ -106,7 +106,7 @@ export function AuthView() {
 
       {/* Step indicators */}
       <div className="absolute top-[32px]">
-        <StepIndicators currentStep={0} />
+        <StepIndicators currentStep={0} totalSteps={4} />
       </div>
 
       {/* Main content */}

@@ -131,7 +131,7 @@ export function CalendarSetupView({ onConnected, onSkip }: CalendarSetupViewProp
 
       {/* Step indicators */}
       <div className="absolute top-[32px]">
-        <StepIndicators currentStep={2} />
+        <StepIndicators currentStep={2} totalSteps={4} />
       </div>
 
       {/* Main content */}

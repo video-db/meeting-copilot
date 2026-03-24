@@ -107,7 +107,7 @@ export function RecordingPreferencesView({ onComplete }: RecordingPreferencesVie
 
       {/* Step indicators */}
       <div className="absolute top-[32px]">
-        <StepIndicators currentStep={2} />
+        <StepIndicators currentStep={3} totalSteps={4} />
       </div>
 
       {/* Main content */}
