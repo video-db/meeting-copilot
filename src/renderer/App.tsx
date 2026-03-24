@@ -31,44 +31,111 @@ import { RecordingHeader, MetricsBar, LiveAssistPanel, MeetingAgendaPanel } from
 
 type Tab = 'home' | 'history' | 'settings';
 
-// Shield icon for permissions
-function ShieldIcon() {
+// Logo icon for permissions
+function LogoIcon() {
   return (
-    <svg
-      width="50"
-      height="50"
-      viewBox="0 0 50 50"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="50" height="50" rx="12" fill="#EC5B16" />
-      <path
-        d="M25 14L15 18V26C15 31.52 19.16 36.74 25 38C30.84 36.74 35 31.52 35 26V18L25 14Z"
-        stroke="white"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <path
-        d="M21 25L24 28L29 22"
-        stroke="white"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </svg>
   );
 }
 
+// System audio icon
+function SystemAudioIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 3.33334V16.6667" stroke="#EC5B16" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M5.83334 6.66666V13.3333" stroke="#EC5B16" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M14.1667 6.66666V13.3333" stroke="#EC5B16" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M1.66666 8.33334V11.6667" stroke="#EC5B16" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M18.3333 8.33334V11.6667" stroke="#EC5B16" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+// Microphone icon
+function MicrophoneIcon({ color = "#EC5B16" }: { color?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 1.66666C9.11594 1.66666 8.26809 2.01785 7.643 2.643C7.0179 3.26809 6.66671 4.11594 6.66671 5V10C6.66671 10.8841 7.0179 11.7319 7.643 12.357C8.26809 12.9821 9.11594 13.3333 10 13.3333C10.8841 13.3333 11.732 12.9821 12.357 12.357C12.9822 11.7319 13.3334 10.8841 13.3334 10V5C13.3334 4.11594 12.9822 3.26809 12.357 2.643C11.732 2.01785 10.8841 1.66666 10 1.66666Z" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M16.6667 8.33334V10C16.6667 11.7681 15.9643 13.4638 14.714 14.714C13.4638 15.9643 11.7681 16.6667 10 16.6667C8.23189 16.6667 6.53619 15.9643 5.28595 14.714C4.03571 13.4638 3.33333 11.7681 3.33333 10V8.33334" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M10 16.6667V18.3333" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+// Screen capture icon
+function ScreenCaptureIcon({ color = "#969696" }: { color?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16.6667 3.33334H3.33333C2.41286 3.33334 1.66666 4.07954 1.66666 5V12.5C1.66666 13.4205 2.41286 14.1667 3.33333 14.1667H16.6667C17.5871 14.1667 18.3333 13.4205 18.3333 12.5V5C18.3333 4.07954 17.5871 3.33334 16.6667 3.33334Z" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M6.66666 17.5H13.3333" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M10 14.1667V17.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+// Toggle component matching Figma design
+function PermissionToggle({ enabled, onClick }: { enabled: boolean; onClick?: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-[38px] h-[22px] rounded-[22px] relative transition-colors ${
+        enabled ? 'bg-[#ec5b16]' : 'bg-[#e4e4ec]'
+      }`}
+    >
+      <div
+        className={`absolute size-[18px] bg-white rounded-[9px] top-[2px] shadow-[0px_1px_3px_0px_rgba(0,0,0,0.15)] transition-all ${
+          enabled ? 'left-[18px]' : 'left-[2px]'
+        }`}
+      />
+    </button>
+  );
+}
+
+// Step indicators for permissions (4 steps)
+function PermissionStepIndicators() {
+  return (
+    <div className="flex gap-[6px] items-center justify-center">
+      <div className="w-[24px] h-[6px] bg-[#ec5b16] rounded-[3px]" />
+      <div className="size-[6px] bg-[#e0e0e8] rounded-[3px]" />
+      <div className="size-[6px] bg-[#e0e0e8] rounded-[3px]" />
+      <div className="size-[6px] bg-[#e0e0e8] rounded-[3px]" />
+    </div>
+  );
+}
+
 function PermissionsView() {
-  const { status, requestMicPermission, openSettings } = usePermissions();
+  const { status, requestMicPermission, openSettings, checkPermissions } = usePermissions();
+  const configStore = useConfigStore();
+
+  const allGranted = status.microphone && status.screen;
+
+  const handleContinue = () => {
+    if (allGranted) {
+      // Move to next step (calendar setup)
+    }
+  };
+
+  const handleSkip = () => {
+    configStore.completeOnboarding();
+  };
+
+  // Check permissions periodically when screen permission is not granted
+  React.useEffect(() => {
+    if (!status.screen) {
+      const interval = setInterval(() => {
+        checkPermissions();
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [status.screen, checkPermissions]);
 
   return (
-    <div className="h-full w-full bg-[#f8f8fa] flex flex-col items-center justify-center relative overflow-hidden">
+    <div className="h-full w-full bg-white flex flex-col relative overflow-hidden">
       {/* Orange gradient glow */}
       <div
-        className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[600px] h-[567px] rounded-[300px] pointer-events-none"
+        className="absolute top-[-22.76%] left-1/2 -translate-x-1/2 w-[600px] h-[566px] rounded-[300px] pointer-events-none"
         style={{
           background:
             'radial-gradient(circle at center, rgba(236,91,22,0.08) 0%, rgba(236,91,22,0) 70%)',
@@ -76,101 +143,137 @@ function PermissionsView() {
       />
 
       {/* Step indicators */}
-      <div className="absolute top-[32px]">
-        <StepIndicators currentStep={1} />
+      <div className="absolute top-[32px] left-1/2 -translate-x-1/2">
+        <PermissionStepIndicators />
       </div>
 
       {/* Main content */}
-      <div className="flex flex-col items-center w-full max-w-[380px] px-6 relative z-10">
-        {/* Icon and heading */}
-        <div className="flex flex-col items-center gap-[16px] mb-[32px]">
-          <ShieldIcon />
-          <div className="flex flex-col items-center gap-[8px]">
-            <h1 className="text-[22px] font-semibold text-black text-center tracking-[-0.44px] leading-[33px]">
-              Permissions Required
-            </h1>
-            <p className="text-[14px] font-normal text-[#464646] text-center leading-[21px]">
-              Meeting Copilot needs access to record your screen and microphone.
-            </p>
+      <div className="flex-1 flex items-center justify-center gap-[60px] p-[60px]">
+        {/* Left side - Permissions */}
+        <div className="flex flex-col gap-[32px] w-[548px] relative z-10">
+          {/* Logo and heading */}
+          <div className="flex flex-col gap-[20px]">
+            <LogoIcon />
+            <div className="flex flex-col">
+              <h1 className="text-[22px] font-semibold text-black tracking-[-0.44px] leading-[32px]">
+                Before we start,
+              </h1>
+              <h1 className="text-[22px] font-semibold text-black tracking-[-0.44px] leading-[32px]">
+                grant a few permissions
+              </h1>
+            </div>
+          </div>
+
+          {/* Permission items */}
+          <div className="flex flex-col gap-[10px] w-full">
+            {/* System audio permission */}
+            <div
+              className={`flex gap-[14px] items-center px-[17px] py-[15px] rounded-[16px] border ${
+                status.screen
+                  ? 'bg-[#fff5ec] border-[#ffe9d3]'
+                  : 'bg-white border-[#efefef]'
+              }`}
+            >
+              <div
+                className={`size-[36px] rounded-[10px] flex items-center justify-center border ${
+                  status.screen
+                    ? 'bg-[rgba(236,91,22,0.1)] border-[rgba(236,91,22,0.3)]'
+                    : 'bg-white border-[#ededf3]'
+                }`}
+              >
+                <SystemAudioIcon />
+              </div>
+              <div className="flex-1 flex flex-col gap-[3px]">
+                <p className="text-[16px] font-medium text-[#141420] leading-[20px]">System audio</p>
+                <p className="text-[13px] font-normal text-[#969696] leading-[18px]">
+                  Capture audio from meeting apps like Zoom, Meet, and Teams.
+                </p>
+              </div>
+              <PermissionToggle
+                enabled={status.screen}
+                onClick={() => !status.screen && openSettings('screen')}
+              />
+            </div>
+
+            {/* Microphone permission */}
+            <div
+              className={`flex gap-[14px] items-center px-[17px] py-[15px] rounded-[16px] border ${
+                status.microphone
+                  ? 'bg-[#fff5ec] border-[#ffe9d3]'
+                  : 'bg-white border-[#efefef]'
+              }`}
+            >
+              <div
+                className={`size-[36px] rounded-[10px] flex items-center justify-center border ${
+                  status.microphone
+                    ? 'bg-[rgba(236,91,22,0.1)] border-[rgba(236,91,22,0.3)]'
+                    : 'bg-white border-[#ededf3]'
+                }`}
+              >
+                <MicrophoneIcon color={status.microphone ? '#EC5B16' : '#969696'} />
+              </div>
+              <div className="flex-1 flex flex-col gap-[3px]">
+                <p className="text-[16px] font-medium text-[#141420] leading-[20px]">Microphone</p>
+                <p className="text-[13px] font-normal text-[#969696] leading-[18px]">
+                  Record your voice during meetings and calls.
+                </p>
+              </div>
+              <PermissionToggle
+                enabled={status.microphone}
+                onClick={() => !status.microphone && requestMicPermission()}
+              />
+            </div>
+
+            {/* Screen capture permission */}
+            <div
+              className={`flex gap-[14px] items-center px-[17px] py-[15px] rounded-[16px] border ${
+                status.screen
+                  ? 'bg-[#fff5ec] border-[#ffe9d3]'
+                  : 'bg-white border-[#efefef]'
+              }`}
+            >
+              <div
+                className={`size-[36px] rounded-[10px] flex items-center justify-center border ${
+                  status.screen
+                    ? 'bg-[rgba(236,91,22,0.1)] border-[rgba(236,91,22,0.3)]'
+                    : 'bg-white border-[#ededf3]'
+                }`}
+              >
+                <ScreenCaptureIcon color={status.screen ? '#EC5B16' : '#969696'} />
+              </div>
+              <div className="flex-1 flex flex-col gap-[3px]">
+                <p className="text-[16px] font-medium text-[#141420] leading-[20px]">Screen capture</p>
+                <p className="text-[13px] font-normal text-[#969696] leading-[18px]">
+                  Record your screen to capture shared content and visual context.
+                </p>
+              </div>
+              <PermissionToggle
+                enabled={status.screen}
+                onClick={() => !status.screen && openSettings('screen')}
+              />
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex flex-col gap-[10px] w-full">
+            <button
+              onClick={handleContinue}
+              disabled={!allGranted}
+              className="w-full bg-[#ff4000] hover:bg-[#e63900] disabled:bg-[#ffb399] disabled:cursor-not-allowed rounded-[12px] px-[24px] py-[12px] text-[16px] font-semibold text-white text-center leading-[22.5px] transition-colors"
+            >
+              Continue to setup
+            </button>
+            <button
+              onClick={handleSkip}
+              className="w-full py-[6px] text-[14px] font-normal text-[#969696] text-center leading-[18px] hover:text-[#464646] transition-colors"
+            >
+              I will do it later
+            </button>
           </div>
         </div>
 
-        {/* Permission items */}
-        <div className="w-full flex flex-col gap-[12px]">
-          {/* Microphone permission */}
-          <div className="flex items-center justify-between p-[16px] bg-white border border-[#e0e0e8] rounded-[12px]">
-            <div className="flex items-center gap-[12px]">
-              <div className="w-[40px] h-[40px] bg-[#f8f8fa] rounded-[10px] flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#464646" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" x2="12" y1="19" y2="22" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-[14px] font-medium text-black">Microphone</p>
-                <p className="text-[12px] text-[#969696]">Required for voice recording</p>
-              </div>
-            </div>
-            {status.microphone ? (
-              <div className="flex items-center gap-[6px] px-[12px] py-[6px] bg-[#e8f5e9] rounded-[8px]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6L9 17l-5-5" />
-                </svg>
-                <span className="text-[13px] font-medium text-[#22c55e]">Granted</span>
-              </div>
-            ) : (
-              <button
-                onClick={requestMicPermission}
-                className="px-[16px] py-[8px] bg-[#ff4000] hover:bg-[#e63900] text-white text-[13px] font-medium rounded-[8px] transition-colors"
-              >
-                Grant
-              </button>
-            )}
-          </div>
-
-          {/* Screen Recording permission */}
-          <div className="flex items-center justify-between p-[16px] bg-white border border-[#e0e0e8] rounded-[12px]">
-            <div className="flex items-center gap-[12px]">
-              <div className="w-[40px] h-[40px] bg-[#f8f8fa] rounded-[10px] flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#464646" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="3" width="20" height="14" rx="2" />
-                  <line x1="8" x2="16" y1="21" y2="21" />
-                  <line x1="12" x2="12" y1="17" y2="21" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-[14px] font-medium text-black">Screen Recording</p>
-                <p className="text-[12px] text-[#969696]">Required for screen capture</p>
-              </div>
-            </div>
-            {status.screen ? (
-              <div className="flex items-center gap-[6px] px-[12px] py-[6px] bg-[#e8f5e9] rounded-[8px]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6L9 17l-5-5" />
-                </svg>
-                <span className="text-[13px] font-medium text-[#22c55e]">Granted</span>
-              </div>
-            ) : (
-              <button
-                onClick={() => openSettings('screen')}
-                className="px-[16px] py-[8px] bg-[#ff4000] hover:bg-[#e63900] text-white text-[13px] font-medium rounded-[8px] transition-colors"
-              >
-                Open Settings
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Info message */}
-        {!status.screen && (
-          <div className="mt-[20px] p-[16px] bg-[#fff8f5] border border-[#ffe4d9] rounded-[12px] flex items-start gap-[12px]">
-            <AlertCircle className="h-5 w-5 text-[#ec5b16] flex-shrink-0 mt-0.5" />
-            <p className="text-[13px] text-[#464646] leading-[20px]">
-              Screen Recording permission must be granted in System Preferences. Click "Open Settings" and enable Meeting Copilot in the list.
-            </p>
-          </div>
-        )}
+        {/* Right side - Placeholder */}
+        <div className="flex-1 h-full min-h-[400px] bg-[#f7f7f7] rounded-[16px]" />
       </div>
     </div>
   );
