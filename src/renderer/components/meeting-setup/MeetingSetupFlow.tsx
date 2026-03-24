@@ -41,7 +41,6 @@ export function MeetingSetupFlow({ onCancel }: MeetingSetupFlowProps) {
     setIsGenerating,
     setError,
     getMeetingSetupData,
-    reset,
   } = useMeetingSetupStore();
 
   const { startRecording, isStarting } = useSession();
@@ -54,20 +53,15 @@ export function MeetingSetupFlow({ onCancel }: MeetingSetupFlowProps) {
     setStep('info');
   }, [setStep]);
 
-  // Skip setup and start recording immediately with a generic name
+  // Skip setup and start recording with whatever data is already filled
   const handleSkipAndRecord = async () => {
-    const defaultName = generateDefaultMeetingName();
+    const meetingName = name.trim() || generateDefaultMeetingName();
 
-    // Reset any partial setup data and set only the name
-    reset();
-    setInfo(defaultName, '');
-
-    // Start recording with minimal data (just the name)
     await startRecording({
-      name: defaultName,
-      description: '',
-      questions: [],
-      checklist: [],
+      name: meetingName,
+      description: description.trim(),
+      questions: questions.filter(q => q.answer), // Only include answered questions
+      checklist,
     });
   };
 

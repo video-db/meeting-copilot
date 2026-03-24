@@ -244,6 +244,14 @@ function PermissionsView({ onContinue }: { onContinue: () => void }) {
             </div>
           </div>
 
+          {/* Notifications tip */}
+          <div className="flex items-start gap-[10px] px-[14px] py-[12px] bg-[#f8f8fa] rounded-[12px] border border-[#efefef]">
+            <p className="text-[13px] text-[#666666] leading-[18px]">
+              <span className="font-medium">Tip:</span> Enable notifications for Notter in{' '}
+              <span className="font-medium">System Settings → Notifications</span> to get alerts before your meetings start.
+            </p>
+          </div>
+
           {/* Buttons */}
           <div className="flex flex-col gap-[10px] w-full">
             <button
@@ -252,12 +260,6 @@ function PermissionsView({ onContinue }: { onContinue: () => void }) {
               className="w-full bg-[#ff4000] hover:bg-[#e63900] disabled:bg-[#ffb399] disabled:cursor-not-allowed rounded-[12px] px-[24px] py-[12px] text-[16px] font-semibold text-white text-center leading-[22.5px] transition-colors"
             >
               Continue to setup
-            </button>
-            <button
-              onClick={handleSkip}
-              className="w-full py-[6px] text-[14px] font-normal text-[#969696] text-center leading-[18px] hover:text-[#464646] transition-colors"
-            >
-              I will do it later
             </button>
           </div>
         </div>

@@ -12,8 +12,12 @@ import {
   LogOut,
   RefreshCw,
   AlertCircle,
+  Bell,
 } from 'lucide-react';
 import type { UpcomingMeeting } from '../../../shared/types/calendar.types';
+import { trpc } from '../../api/trpc';
+
+type RecordingBehavior = 'always_ask' | 'default_record' | 'no_notification';
 
 type CalendarStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -50,11 +54,37 @@ function StatusBadge({ status }: { status: CalendarStatus }) {
   }
 }
 
+// Recording icon
+function RecordIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="10" cy="10" r="7.5" stroke="#ec5b16" strokeWidth="1.5" />
+      <circle cx="10" cy="10" r="3" fill="#ec5b16" />
+    </svg>
+  );
+}
+
 export function CalendarPanel() {
   const [status, setStatus] = useState<CalendarStatus>('disconnected');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingMeeting[]>([]);
+
+  // Preferences state
+  const [notifyMinutes, setNotifyMinutes] = useState<number>(2);
+  const [recordingBehavior, setRecordingBehavior] = useState<RecordingBehavior>('always_ask');
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
+
+  const preferencesQuery = trpc.settings.getCalendarPreferences.useQuery();
+  const updatePreferences = trpc.settings.updateCalendarPreferences.useMutation();
+
+  // Load preferences when query completes
+  useEffect(() => {
+    if (preferencesQuery.data) {
+      setNotifyMinutes(preferencesQuery.data.notifyMinutesBefore ?? 2);
+      setRecordingBehavior(preferencesQuery.data.recordingBehavior ?? 'always_ask');
+    }
+  }, [preferencesQuery.data]);
 
   // Check auth status on mount
   useEffect(() => {
@@ -140,6 +170,54 @@ export function CalendarPanel() {
     if (event.isAllDay) return 'All day';
     return event.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  const handleNotifyMinutesChange = async (minutes: number) => {
+    setNotifyMinutes(minutes);
+    setIsSavingPrefs(true);
+    try {
+      await updatePreferences.mutateAsync({ notifyMinutesBefore: minutes });
+    } catch (err) {
+      console.error('Failed to update notification timing:', err);
+    } finally {
+      setIsSavingPrefs(false);
+    }
+  };
+
+  const handleRecordingBehaviorChange = async (behavior: RecordingBehavior) => {
+    setRecordingBehavior(behavior);
+    setIsSavingPrefs(true);
+    try {
+      await updatePreferences.mutateAsync({ recordingBehavior: behavior });
+    } catch (err) {
+      console.error('Failed to update recording behavior:', err);
+    } finally {
+      setIsSavingPrefs(false);
+    }
+  };
+
+  const notifyOptions = [
+    { value: 1, label: '1 min' },
+    { value: 2, label: '2 mins' },
+    { value: 5, label: '5 mins' },
+  ];
+
+  const behaviorOptions: { value: RecordingBehavior; title: string; description: string }[] = [
+    {
+      value: 'always_ask',
+      title: 'Ask me every time',
+      description: "You'll get a notification to confirm before each meeting",
+    },
+    {
+      value: 'default_record',
+      title: 'Record all meetings',
+      description: 'Automatically join and record every calendar event',
+    },
+    {
+      value: 'no_notification',
+      title: 'Start recording via app only',
+      description: 'Only records when you manually start a session',
+    },
+  ];
 
   return (
     <div className="space-y-[16px]">
@@ -302,6 +380,93 @@ export function CalendarPanel() {
         </div>
       </div>
 
+      {/* Notification Preferences Card - Only show when connected */}
+      {status === 'connected' && (
+        <div className="bg-white border border-[#ededf3] rounded-[12px] shadow-[0px_1.272px_15.267px_0px_rgba(0,0,0,0.05)]">
+          <div className="px-[20px] py-[16px] border-b border-[#ededf3]">
+            <h3 className="text-[15px] font-semibold text-[#141420]">Notification Preferences</h3>
+            <p className="text-[13px] text-[#969696] mt-[4px]">
+              Configure when and how you want to be notified about meetings
+            </p>
+          </div>
+          <div className="px-[20px] py-[20px] space-y-[24px]">
+            {/* Notify before meetings */}
+            <div className="space-y-[10px]">
+              <div className="flex items-center gap-[8px]">
+                <Bell className="h-[18px] w-[18px] text-[#464646]" />
+                <span className="text-[14px] font-medium text-[#141420]">
+                  Notify me before meetings
+                </span>
+                {isSavingPrefs && (
+                  <Loader2 className="h-[14px] w-[14px] text-[#969696] animate-spin ml-auto" />
+                )}
+              </div>
+              <div className="flex gap-[8px]">
+                {notifyOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => handleNotifyMinutesChange(option.value)}
+                    disabled={isSavingPrefs}
+                    className={`flex-1 py-[11px] rounded-[8px] text-[13px] font-medium leading-[19.5px] transition-colors disabled:opacity-60 ${
+                      notifyMinutes === option.value
+                        ? 'bg-[rgba(236,91,22,0.05)] border border-[#ec5b16] text-[#ec5b16]'
+                        : 'border border-[rgba(150,150,150,0.3)] text-[#464646] hover:bg-gray-50'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Recording behavior */}
+            <div className="space-y-[10px]">
+              <div className="flex items-center gap-[8px]">
+                <RecordIcon />
+                <span className="text-[14px] font-medium text-[#141420]">
+                  Default recording behavior
+                </span>
+              </div>
+              <div className="flex flex-col gap-[8px]">
+                {behaviorOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => handleRecordingBehaviorChange(option.value)}
+                    disabled={isSavingPrefs}
+                    className={`w-full flex items-center gap-[12px] px-[17px] py-[15px] rounded-[10px] text-left transition-colors disabled:opacity-60 ${
+                      recordingBehavior === option.value
+                        ? 'bg-[rgba(236,91,22,0.05)] border border-[#ec5b16]'
+                        : 'border border-[#e0e0e8] hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex-1 flex flex-col gap-[2px]">
+                      <span className="text-[14px] font-medium text-[#141420]">
+                        {option.title}
+                      </span>
+                      <span className="text-[12px] font-normal text-[#464646]">
+                        {option.description}
+                      </span>
+                    </div>
+                    {/* Radio indicator */}
+                    <div
+                      className={`w-[18px] h-[18px] rounded-[9px] border-2 flex items-center justify-center shrink-0 ${
+                        recordingBehavior === option.value
+                          ? 'border-[#ec5b16]'
+                          : 'border-[#e0e0e8]'
+                      }`}
+                    >
+                      {recordingBehavior === option.value && (
+                        <div className="w-[8px] h-[8px] rounded-[4px] bg-[#ec5b16]" />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Info Card */}
       <div className="bg-white border border-[#ededf3] rounded-[12px] shadow-[0px_1.272px_15.267px_0px_rgba(0,0,0,0.05)]">
         <div className="px-[20px] py-[16px]">
@@ -319,7 +484,7 @@ export function CalendarPanel() {
                 <span className="text-[12px] font-semibold text-[#ec5b16]">2</span>
               </div>
               <p className="text-[13px] text-[#464646] leading-[18px]">
-                <span className="font-medium text-[#141420]">Notifications:</span> You'll receive a notification 2 minutes before each meeting starts.
+                <span className="font-medium text-[#141420]">Notifications:</span> You'll receive a notification before each meeting starts based on your preferences above.
               </p>
             </div>
             <div className="flex items-start gap-[12px]">
@@ -328,6 +493,14 @@ export function CalendarPanel() {
               </div>
               <p className="text-[13px] text-[#464646] leading-[18px]">
                 <span className="font-medium text-[#141420]">Privacy:</span> Your calendar data stays on your device. We only read event titles and times to send notifications.
+              </p>
+            </div>
+            <div className="flex items-start gap-[12px]">
+              <div className="w-[24px] h-[24px] rounded-full bg-[#fff5ec] flex items-center justify-center shrink-0">
+                <span className="text-[12px] font-semibold text-[#ec5b16]">4</span>
+              </div>
+              <p className="text-[13px] text-[#464646] leading-[18px]">
+                <span className="font-medium text-[#141420]">Enable Notifications:</span> Make sure Notter notifications are enabled in <span className="font-medium">System Settings → Notifications → Notter</span>.
               </p>
             </div>
           </div>
