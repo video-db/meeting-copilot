@@ -92,7 +92,7 @@ export class MCPClientService extends EventEmitter {
       // Create client
       this.client = new Client(
         {
-          name: 'meeting-copilot',
+          name: 'notter',
           version: '1.0.0',
         },
         {

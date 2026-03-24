@@ -61,7 +61,7 @@ export function setupAppHandlers(): void {
     const playerWindow = new BrowserWindow({
       width: 1024,
       height: 768,
-      title: 'Meeting Copilot - Player',
+      title: 'Notter - Player',
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,

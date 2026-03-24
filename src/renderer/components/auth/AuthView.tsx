@@ -116,7 +116,7 @@ export function AuthView() {
           <LogoIcon />
           <div className="flex flex-col items-center gap-[8px]">
             <h1 className="text-[22px] font-semibold text-black text-center tracking-[-0.44px] leading-[33px]">
-              Welcome to Meeting Copilot
+              Welcome to Notter
             </h1>
             <p className="text-[14px] font-normal text-[#464646] text-center leading-[21px]">
               Record, transcribe, and get AI insights from every meeting.

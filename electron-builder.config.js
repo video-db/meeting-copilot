@@ -16,8 +16,8 @@ function getTargetArchName(arch) {
  * @type {import('electron-builder').Configuration}
  */
 const config = {
-  appId: 'com.videodb.meeting-copilot',
-  productName: 'Meeting Copilot',
+  appId: 'com.videodb.notter',
+  productName: 'Notter',
   directories: {
     output: 'release',
     buildResources: 'resources',
@@ -65,14 +65,14 @@ const config = {
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
     extendInfo: {
-      NSMicrophoneUsageDescription: 'Meeting Copilot needs microphone access to record audio.',
-      NSCameraUsageDescription: 'Meeting Copilot needs camera access to record video.',
+      NSMicrophoneUsageDescription: 'Notter needs microphone access to record audio.',
+      NSCameraUsageDescription: 'Notter needs camera access to record video.',
       NSScreenCaptureUsageDescription:
-        'Meeting Copilot needs screen capture access to record your screen.',
+        'Notter needs screen capture access to record your screen.',
     },
   },
   dmg: {
-    title: 'Meeting Copilot ${version}${arch}',
+    title: 'Notter ${version}${arch}',
     icon: 'resources/icon.icns',
     window: {
       width: 540,

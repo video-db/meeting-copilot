@@ -50,7 +50,7 @@ export const useConfigStore = create<ConfigState>()(
       },
     }),
     {
-      name: 'meeting-copilot-config',
+      name: 'notter-config',
       partialize: (state) => ({
         accessToken: state.accessToken,
         userName: state.userName,

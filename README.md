@@ -15,7 +15,7 @@
     <img src="https://codaio.imgix.net/docs/_s5lUnUCIU/blobs/bl-RgjcFrrJjj/d3cbc44f8584ecd42f2a97d981a144dce6a66d83ddd5864f723b7808c7d1dfbc25034f2f25e1b2188e78f78f37bcb79d3c34ca937cbb08ca8b3da1526c29da9a897ab38eb39d084fd715028b7cc60eb595c68ecfa6fa0bb125ec2b09da65664a4f172c2f" alt="Logo" width="300" height="">
   </a>
 
-  <h1 align="center">Meeting Copilot</h1>
+  <h1 align="center">Notter</h1>
 
   <p align="center">
     Real-time AI meeting assistant with live transcription, sentiment analysis, cue cards, and post-meeting summaries — powered by <a href="https://videodb.io">VideoDB</a>.
@@ -52,7 +52,7 @@ https://github.com/user-attachments/assets/e3cd2dcc-d9ab-4f5f-8904-52c56133ed2d
 
 If you downloaded the pre-built app from the links above:
 
-1. **Mount the DMG** and drag Meeting Copilot to your Applications folder
+1. **Mount the DMG** and drag Notter to your Applications folder
 
 2. **Remove quarantine attributes** to allow the app to run:
    ```bash
@@ -67,7 +67,7 @@ If you downloaded the pre-built app from the links above:
 
 ## Overview
 
-Meeting Copilot records your meetings and provides real-time insights while you talk. It captures screen, microphone, and system audio through VideoDB's capture SDK, runs dual-channel transcription (your mic vs. other participants' system audio), and feeds the conversation into a parallel analysis pipeline that produces sentiment scores, cue cards, nudges, talk ratio monitoring, and playbook tracking — all updated live during the meeting. When the meeting ends, it generates a structured summary with action items, objections, and risk assessment.
+Notter records your meetings and provides real-time insights while you talk. It captures screen, microphone, and system audio through VideoDB's capture SDK, runs dual-channel transcription (your mic vs. other participants' system audio), and feeds the conversation into a parallel analysis pipeline that produces sentiment scores, cue cards, nudges, talk ratio monitoring, and playbook tracking — all updated live during the meeting. When the meeting ends, it generates a structured summary with action items, objections, and risk assessment.
 
 ## Features
 
@@ -76,7 +76,7 @@ Meeting Copilot records your meetings and provides real-time insights while you 
 - **Real-time Transcription** - Live speech-to-text powered by VideoDB
 - **Recording History** - Browse and review past recordings with full transcripts
 
-### AI Meeting Copilot
+### AI Notter
 - **Cue Cards** - Context-aware prompts and talking points based on conversation
 - **Sentiment Analysis** - Track participant sentiment throughout the meeting
 - **Conversation Metrics** - Monitor talk ratio, speaking pace, questions asked, and more
@@ -95,7 +95,7 @@ Meeting Copilot records your meetings and provides real-time insights while you 
 
 ## Architecture
 
-![Meeting Copilot Architecture](assets/sales-copilot-architecture.png)
+![Notter Architecture](assets/sales-copilot-architecture.png)
 
 ## How the Copilot Works
 
@@ -134,8 +134,8 @@ The copilot pipeline processes conversation in real-time through several paralle
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/video-db/meeting-copilot.git
-   cd meeting-copilot
+   git clone https://github.com/video-db/notter.git
+   cd notter
    ```
 
 2. **Install dependencies:**
@@ -281,7 +281,7 @@ Grant these in **System Preferences > Privacy & Security**.
 - Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
 - Rebuild native modules: `npm run rebuild`
 - Check Node.js version: `node --version` (requires 18+)
-- Review logs in `~/Library/Application Support/meeting-copilot/logs/`
+- Review logs in `~/Library/Application Support/notter/logs/`
 
 ### Webhook delivery fails
 - Cloudflare tunnel auto-creates on recording start
@@ -292,9 +292,9 @@ Grant these in **System Preferences > Privacy & Security**.
 
 Application data is stored in:
 ```
-~/Library/Application Support/meeting-copilot/
+~/Library/Application Support/notter/
 ├── data/
-│   └── meeting-copilot.db    # SQLite database
+│   └── notter.db    # SQLite database
 └── logs/
     └── app-YYYY-MM-DD.log  # Daily log files
 ```
