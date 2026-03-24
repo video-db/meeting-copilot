@@ -5,10 +5,9 @@
 
 export interface ProbingQuestion {
   question: string;
-  type: 'single-choice' | 'multi-choice';
   options: string[];
-  answer: string; // comma-separated for multi-choice
-  customAnswer?: string; // 5th "other" option for custom input
+  answer: string; // comma-separated selected options
+  customAnswer?: string; // "other" option for custom input
 }
 
 export interface MeetingSetup {
@@ -26,9 +25,7 @@ export interface MeetingSetupStep {
 export interface ProbingQuestionsResponse {
   questions: Array<{
     question: string;
-    type: 'single-choice' | 'multi-choice';
     options: string[];
-    answer: string;
   }>;
 }
 

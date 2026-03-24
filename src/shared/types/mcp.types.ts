@@ -207,6 +207,10 @@ export interface MCPEvents {
   'tool-call-completed': MCPToolResult;
   'tool-call-error': { callId: string; serverId: string; toolName: string; error: string };
   'intent-detected': MCPIntentDetection;
+  // OAuth events
+  'auth-required': { serverId: string; serverName: string };
+  'auth-success': { serverId: string };
+  'auth-error': { serverId: string; error: string };
 }
 
 /**
@@ -276,4 +280,27 @@ export interface MCPTestConnectionResult {
   tools?: MCPTool[];
   error?: string;
   latencyMs?: number;
+}
+
+/**
+ * OAuth Configuration for MCP servers
+ */
+export interface MCPOAuthConfig {
+  serverId: string;
+  serverName: string;
+  authorizationUrl: string;
+  tokenUrl: string;
+  clientId: string;
+  clientSecret?: string;
+  scopes?: string[];
+  redirectUri?: string;
+}
+
+/**
+ * OAuth status for a server
+ */
+export interface MCPOAuthStatus {
+  hasTokens: boolean;
+  requiresAuth: boolean;
+  expiresAt?: string;
 }

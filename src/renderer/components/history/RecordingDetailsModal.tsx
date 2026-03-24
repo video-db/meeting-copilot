@@ -215,17 +215,17 @@ export function RecordingDetailsModal({
               </CollapsibleSection>
             )}
 
-            {/* Meeting Checklist */}
-            {recording.meetingChecklist && recording.meetingChecklist.length > 0 && (
+            {/* Action Items (Post-Meeting Checklist) */}
+            {recording.postMeetingChecklist && recording.postMeetingChecklist.length > 0 && (
               <CollapsibleSection
-                title="Meeting Checklist"
+                title="Action Items"
                 icon={<ClipboardList className="h-4 w-4" />}
-                badge={`${recording.meetingChecklist.length} items`}
+                badge={`${recording.postMeetingChecklist.length} items`}
               >
                 <ul className="space-y-2 pt-2">
-                  {recording.meetingChecklist.map((item, idx) => (
+                  {recording.postMeetingChecklist.map((item, idx) => (
                     <li key={idx} className="flex items-start gap-2 text-sm">
-                      <div className="w-4 h-4 rounded border border-muted-foreground/40 flex-shrink-0 mt-0.5" />
+                      <div className="w-4 h-4 rounded border border-primary/60 flex-shrink-0 mt-0.5" />
                       <span>{item}</span>
                     </li>
                   ))}

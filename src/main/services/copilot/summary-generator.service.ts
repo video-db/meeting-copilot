@@ -1,15 +1,15 @@
 /**
  * Summary Generator Service
  *
- * Generates post-meeting summaries using two specialized prompts:
+ * Generates post-meeting summaries using three specialized prompts:
  * 1. Short Overview - A narrative paragraph summary (3-5 sentences)
  * 2. Key Points - Structured JSON with topics and attributed points
+ * 3. Post-Meeting Checklist - Action items and follow-ups from the conversation
  */
 
 import { logger } from '../../lib/logger';
 import { getLLMService } from '../llm.service';
 import { getTranscriptSegmentsByRecording } from '../../db';
-import type { TranscriptSegmentData } from './transcript-buffer.service';
 
 const log = logger.child({ module: 'summary-generator' });
 
@@ -23,6 +23,7 @@ export interface KeyPoint {
 export interface PostMeetingSummary {
   shortOverview: string;
   keyPoints: KeyPoint[];
+  postMeetingChecklist: string[];
   generatedAt: number;
 }
 
@@ -96,13 +97,44 @@ Output format:
   ]
 }`;
 
+const POST_MEETING_CHECKLIST_SYSTEM_PROMPT = `You are an expert meeting analyst. Given a meeting transcript, extract
+all action items, follow-ups, open questions, and tasks that need to be
+handled AFTER the meeting ends.
+
+Rules:
+- Extract concrete, actionable items that emerged from the conversation.
+- Include: tasks assigned to people, decisions that need follow-up,
+  questions that were left unanswered, commitments made, deadlines
+  mentioned, and next steps discussed.
+- Each item should be a clear, actionable statement. Include the
+  responsible person if mentioned.
+- Good: "John to send the proposal by Friday"
+- Good: "Schedule follow-up meeting with design team"
+- Good: "Clarify budget allocation with finance"
+- Bad: "Discussed the project" (not actionable)
+- Order by priority/urgency if discernible, otherwise by order mentioned.
+- Generate between 3-10 items. Only include genuine action items from
+  the conversation - do not pad or invent items.
+- If no clear action items were discussed, return an empty array.
+
+Respond ONLY with the JSON object below - no explanation, no markdown
+fences, no preamble.
+
+Output format:
+{
+  "checklist": [
+    "Action item 1",
+    "Action item 2"
+  ]
+}`;
+
 // Summary Generator Service
 
 export class SummaryGeneratorService {
   constructor() {}
 
   /**
-   * Generate both short overview and key points from full transcript
+   * Generate short overview, key points, and post-meeting checklist from full transcript
    */
   async generate(
     recordingId: number,
@@ -121,15 +153,17 @@ export class SummaryGeneratorService {
     const transcript = this.formatTranscript(dbSegments);
     const userPrompt = this.buildUserPrompt(transcript, context);
 
-    // Generate both summaries in parallel
-    const [shortOverview, keyPoints] = await Promise.all([
+    // Generate all summaries in parallel
+    const [shortOverview, keyPoints, postMeetingChecklist] = await Promise.all([
       this.generateShortOverview(userPrompt),
       this.generateKeyPoints(userPrompt),
+      this.generatePostMeetingChecklist(userPrompt),
     ]);
 
     return {
       shortOverview,
       keyPoints,
+      postMeetingChecklist,
       generatedAt: Date.now(),
     };
   }
@@ -179,6 +213,29 @@ export class SummaryGeneratorService {
   }
 
   /**
+   * Generate post-meeting checklist (action items)
+   */
+  private async generatePostMeetingChecklist(userPrompt: string): Promise<string[]> {
+    const llm = getLLMService();
+
+    try {
+      const response = await llm.complete(userPrompt, POST_MEETING_CHECKLIST_SYSTEM_PROMPT);
+
+      if (response.success && response.content) {
+        const parsed = this.parseChecklistResponse(response.content);
+        if (parsed) {
+          log.info({ itemCount: parsed.length }, 'Post-meeting checklist generated successfully');
+          return parsed;
+        }
+      }
+    } catch (error) {
+      log.error({ error }, 'Post-meeting checklist generation failed');
+    }
+
+    return [];
+  }
+
+  /**
    * Parse key points JSON response
    */
   private parseKeyPointsResponse(content: string): KeyPoint[] | null {
@@ -202,6 +259,31 @@ export class SummaryGeneratorService {
       }
     } catch (error) {
       log.warn({ error, content: content.slice(0, 200) }, 'Failed to parse key points JSON');
+    }
+    return null;
+  }
+
+  /**
+   * Parse checklist JSON response
+   */
+  private parseChecklistResponse(content: string): string[] | null {
+    try {
+      // Remove markdown fences if present
+      let cleaned = content.trim();
+      if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+      }
+
+      const parsed = JSON.parse(cleaned);
+
+      // Handle both { checklist: [...] } and direct array
+      const checklist = parsed.checklist || parsed;
+
+      if (Array.isArray(checklist)) {
+        return checklist.filter((item: unknown) => typeof item === 'string' && item.trim().length > 0);
+      }
+    } catch (error) {
+      log.warn({ error, content: content.slice(0, 200) }, 'Failed to parse checklist JSON');
     }
     return null;
   }
@@ -269,6 +351,7 @@ ${transcript}`;
     return {
       shortOverview: 'No transcript available to summarize.',
       keyPoints: [],
+      postMeetingChecklist: [],
       generatedAt: Date.now(),
     };
   }

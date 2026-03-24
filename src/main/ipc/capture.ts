@@ -3,7 +3,7 @@ import { CaptureClient } from 'videodb/capture';
 import { connect } from 'videodb';
 import type { WebSocketConnection, WebSocketMessage } from 'videodb';
 import type { Channel } from '../../shared/schemas/capture.schema';
-import type { RecorderEvent, TranscriptEvent, StartRecordingParams } from '../../shared/types/ipc.types';
+import type { RecorderEvent, TranscriptEvent, VisualIndexEvent, StartRecordingParams } from '../../shared/types/ipc.types';
 import { setupSessionWebSocket, cleanupSessionWebSocket } from '../services/session-events.service';
 import { startExportPoller, stopExportPoller, stopAllExportPollers } from '../services/export-poller.service';
 import { createChildLogger } from '../lib/logger';
@@ -28,7 +28,9 @@ const captureEventHandlers: {
 
 let micWebSocket: WebSocketConnection | null = null;
 let sysAudioWebSocket: WebSocketConnection | null = null;
+let screenWebSocket: WebSocketConnection | null = null;
 let transcriptListenerActive = false;
+let visualIndexListenerActive = false;
 
 // Track current session for export polling
 let currentSessionId: string | null = null;
@@ -162,6 +164,91 @@ async function cleanupTranscriptWebSockets(): Promise<void> {
   }
 }
 
+async function setupVisualIndexWebSocket(
+  sessionToken: string,
+  apiUrl?: string
+): Promise<string | null> {
+  try {
+    if (!sessionToken) {
+      logger.warn('[WS] No session token for visual index');
+      return null;
+    }
+
+    const connectOptions: { sessionToken: string; baseUrl?: string } = { sessionToken };
+    if (apiUrl) {
+      connectOptions.baseUrl = apiUrl;
+    }
+    const videodbConnection = connect(connectOptions);
+
+    try {
+      const wsConnection = await videodbConnection.connectWebsocket();
+      screenWebSocket = await wsConnection.connect();
+      logger.info({ connectionId: screenWebSocket.connectionId }, '[WS] Screen WebSocket connected for visual indexing');
+
+      visualIndexListenerActive = true;
+      listenForVisualIndexMessages(screenWebSocket);
+
+      return screenWebSocket.connectionId || null;
+    } catch (err) {
+      logger.error({ error: err }, '[WS] Failed to create screen WebSocket');
+      return null;
+    }
+  } catch (err) {
+    logger.error({ error: err }, '[WS] Error setting up visual index WebSocket');
+    return null;
+  }
+}
+
+async function listenForVisualIndexMessages(ws: WebSocketConnection): Promise<void> {
+  try {
+    for await (const msg of ws.receive()) {
+      if (!visualIndexListenerActive) break;
+
+      const channel = (msg.channel || msg.type || msg.event_type || 'event') as string;
+
+      // Listen for scene_index or visual_index events
+      if (channel === 'scene_index' || channel === 'visual_index') {
+        const msgData = msg.data as Record<string, unknown>;
+        const text = (msgData.text || msg.text || '') as string;
+        const start = (msgData.start ?? msg.start) as number;
+        const end = (msgData.end ?? msg.end) as number;
+
+        const visualIndexEvent: VisualIndexEvent = {
+          text,
+          start,
+          end,
+          rtstreamId: (msg.rtstream_id || msg.rtstreamId) as string | undefined,
+          rtstreamName: (msg.rtstream_name || msg.rtstreamName) as string | undefined,
+        };
+
+        logger.info({ text: text.substring(0, 50) }, '[WS] Visual index event received');
+
+        sendRecorderEvent({
+          event: 'visual_index',
+          data: visualIndexEvent,
+        });
+      }
+    }
+  } catch (err) {
+    if (visualIndexListenerActive) {
+      logger.error({ error: err }, '[WS] Error in visual index listener');
+    }
+  }
+}
+
+async function cleanupVisualIndexWebSocket(): Promise<void> {
+  visualIndexListenerActive = false;
+
+  if (screenWebSocket) {
+    try {
+      await screenWebSocket.close();
+    } catch (e) {
+      // Ignore close errors
+    }
+    screenWebSocket = null;
+  }
+}
+
 export function setMainWindow(window: BrowserWindow): void {
   mainWindow = window;
 }
@@ -265,8 +352,9 @@ export function setupCaptureHandlers(): void {
       error?: string;
       micWsConnectionId?: string;
       sysAudioWsConnectionId?: string;
+      screenWsConnectionId?: string;
     }> => {
-      const { config, sessionToken, accessToken, apiUrl, enableTranscription } = params;
+      const { config, sessionToken, accessToken, apiUrl, enableTranscription, enableVisualIndex } = params;
 
       logger.info({ sessionId: config.sessionId, enableTranscription }, 'Starting recording - IPC handler called');
 
@@ -285,6 +373,15 @@ export function setupCaptureHandlers(): void {
               { micWsId: wsConnectionIds.micWsId, sysAudioWsId: wsConnectionIds.sysAudioWsId },
               '[WS] WebSocket connections established'
             );
+          }
+        }
+
+        // Set up visual index WebSocket for screen capture
+        let screenWsConnectionId: string | null = null;
+        if (enableVisualIndex && config.streams?.screen !== false) {
+          screenWsConnectionId = await setupVisualIndexWebSocket(sessionToken, apiUrl);
+          if (screenWsConnectionId) {
+            logger.info({ screenWsId: screenWsConnectionId }, '[WS] Visual index WebSocket established');
           }
         }
 
@@ -403,12 +500,14 @@ export function setupCaptureHandlers(): void {
           sessionId: config.sessionId,
           micWsConnectionId: wsConnectionIds?.micWsId || undefined,
           sysAudioWsConnectionId: wsConnectionIds?.sysAudioWsId || undefined,
+          screenWsConnectionId: screenWsConnectionId || undefined,
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         const errorStack = error instanceof Error ? error.stack : undefined;
         logger.error({ err: error, errorMessage, errorStack }, 'Failed to start recording');
         await cleanupTranscriptWebSockets();
+        await cleanupVisualIndexWebSocket();
         await cleanupSessionWebSocket();
         cleanupCapture();
         return {
@@ -458,6 +557,7 @@ export function setupCaptureHandlers(): void {
         }
 
         await cleanupTranscriptWebSockets();
+        await cleanupVisualIndexWebSocket();
         await cleanupSessionWebSocket();
 
         // Start export poller to detect when video is ready
@@ -484,6 +584,7 @@ export function setupCaptureHandlers(): void {
       } catch (error) {
         logger.error({ error }, 'Failed to stop recording');
         await cleanupTranscriptWebSockets();
+        await cleanupVisualIndexWebSocket();
         await cleanupSessionWebSocket();
         cleanupCapture();
 
@@ -624,6 +725,7 @@ export async function cleanupCaptureAsync(): Promise<void> {
 
 export async function shutdownCaptureClient(): Promise<void> {
   await cleanupTranscriptWebSockets();
+  await cleanupVisualIndexWebSocket();
   await cleanupSessionWebSocket();
 
   // Stop all export pollers

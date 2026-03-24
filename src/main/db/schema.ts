@@ -35,7 +35,9 @@ export const recordings = sqliteTable('recordings', {
   meetingName: text('meeting_name'),
   meetingDescription: text('meeting_description'),
   probingQuestions: text('probing_questions'), // JSON: ProbingQuestion[]
-  meetingChecklist: text('meeting_checklist'), // JSON: string[]
+  meetingChecklist: text('meeting_checklist'), // JSON: string[] (in-meeting agenda)
+  // Post-meeting analysis
+  postMeetingChecklist: text('post_meeting_checklist'), // JSON: string[] (action items after meeting)
 });
 
 // Meeting Co-Pilot Tables
@@ -257,6 +259,7 @@ export type NewCopilotSetting = typeof copilotSettings.$inferInsert;
 export const mcpServers = sqliteTable('mcp_servers', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  description: text('description'), // Optional description for display
   transport: text('transport', { enum: ['stdio', 'http'] }).notNull(),
   command: text('command'),           // For stdio transport
   args: text('args'),                 // JSON array of arguments
@@ -301,3 +304,58 @@ export type NewMCPServer = typeof mcpServers.$inferInsert;
 
 export type MCPToolCall = typeof mcpToolCalls.$inferSelect;
 export type NewMCPToolCall = typeof mcpToolCalls.$inferInsert;
+
+/**
+ * MCP OAuth Tokens
+ * Stores OAuth tokens for MCP servers that require authentication
+ */
+export const mcpOauthTokens = sqliteTable('mcp_oauth_tokens', {
+  serverId: text('server_id').primaryKey(),
+  accessToken: text('access_token').notNull(),     // Encrypted
+  refreshToken: text('refresh_token'),              // Encrypted
+  tokenType: text('token_type').notNull().default('Bearer'),
+  scope: text('scope'),
+  expiresAt: text('expires_at'),                   // ISO timestamp
+  authServerUrl: text('auth_server_url'),          // OAuth server URL for refresh
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+});
+
+export type MCPOauthToken = typeof mcpOauthTokens.$inferSelect;
+export type NewMCPOauthToken = typeof mcpOauthTokens.$inferInsert;
+
+/**
+ * Calendar Preferences
+ * User preferences for meeting notifications and recording behavior
+ */
+export const calendarPreferences = sqliteTable('calendar_preferences', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  notifyMinutesBefore: integer('notify_minutes_before').notNull().default(2),
+  recordingBehavior: text('recording_behavior', {
+    enum: ['always_ask', 'default_record', 'no_notification']
+  }).notNull().default('always_ask'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+});
+
+export type CalendarPreferences = typeof calendarPreferences.$inferSelect;
+export type NewCalendarPreferences = typeof calendarPreferences.$inferInsert;
+export type RecordingBehavior = 'always_ask' | 'default_record' | 'no_notification';
+
+// Workflows Tables
+
+/**
+ * Workflows
+ * Webhook integrations for post-meeting automation (n8n, Zapier, etc.)
+ */
+export const workflows = sqliteTable('workflows', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  webhookUrl: text('webhook_url').notNull(),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+});
+
+export type Workflow = typeof workflows.$inferSelect;
+export type NewWorkflow = typeof workflows.$inferInsert;

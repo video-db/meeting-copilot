@@ -9,6 +9,7 @@ import { EventEmitter } from 'events';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { logger } from '../../lib/logger';
 import type {
   MCPServerConfig,
@@ -17,6 +18,7 @@ import type {
   MCPConnectionStatus,
 } from '../../../shared/types/mcp.types';
 import { decryptCredentials } from '../../utils/encryption';
+import type { OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
 
 const log = logger.child({ module: 'mcp-client' });
 
@@ -24,19 +26,26 @@ export interface MCPClientEvents {
   'connected': { serverId: string; tools: MCPTool[] };
   'disconnected': { serverId: string; reason: string };
   'error': { serverId: string; error: string };
+  'auth-required': { serverId: string; authServerUrl?: string };
   'tool-result': MCPToolResult;
+}
+
+export interface MCPClientOptions {
+  authProvider?: OAuthClientProvider;
 }
 
 export class MCPClientService extends EventEmitter {
   private client: Client | null = null;
-  private transport: StdioClientTransport | SSEClientTransport | null = null;
+  private transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport | null = null;
   private config: MCPServerConfig;
+  private options: MCPClientOptions;
   private tools: MCPTool[] = [];
   private connectionStatus: MCPConnectionStatus = 'disconnected';
 
-  constructor(config: MCPServerConfig) {
+  constructor(config: MCPServerConfig, options: MCPClientOptions = {}) {
     super();
     this.config = config;
+    this.options = options;
   }
 
   /**
@@ -138,9 +147,17 @@ export class MCPClientService extends EventEmitter {
     }
 
     // Parse args
-    const args = typeof this.config.args === 'string'
-      ? JSON.parse(this.config.args)
-      : this.config.args || [];
+    let args: string[] = [];
+    if (typeof this.config.args === 'string') {
+      try {
+        args = JSON.parse(this.config.args);
+      } catch {
+        log.warn({ serverId: this.config.id }, 'Failed to parse args as JSON, treating as single argument');
+        args = [this.config.args];
+      }
+    } else {
+      args = this.config.args || [];
+    }
 
     this.transport = new StdioClientTransport({
       command: this.config.command,
@@ -152,7 +169,7 @@ export class MCPClientService extends EventEmitter {
   }
 
   /**
-   * Connect via HTTP/SSE transport
+   * Connect via HTTP transport (Streamable HTTP with SSE fallback)
    */
   private async connectHttp(): Promise<void> {
     if (!this.config.url) {
@@ -174,13 +191,99 @@ export class MCPClientService extends EventEmitter {
       }
     }
 
-    this.transport = new SSEClientTransport(new URL(this.config.url), {
-      requestInit: {
-        headers,
-      },
-    });
+    const url = new URL(this.config.url);
+    const { authProvider } = this.options;
 
-    await this.client!.connect(this.transport);
+    // Try modern Streamable HTTP transport first
+    try {
+      this.transport = new StreamableHTTPClientTransport(url, {
+        authProvider,
+        requestInit: { headers },
+      });
+      await this.client!.connect(this.transport);
+      log.info({ serverId: this.config.id }, 'Connected via Streamable HTTP transport');
+    } catch (streamableError) {
+      // Check if this is an auth error
+      if (this.isAuthError(streamableError)) {
+        log.info({ serverId: this.config.id }, 'Server requires OAuth authentication');
+        this.emit('auth-required', { serverId: this.config.id });
+        throw streamableError;
+      }
+
+      // Fall back to legacy SSE transport
+      log.warn(
+        { serverId: this.config.id, error: streamableError },
+        'Streamable HTTP failed, falling back to SSE'
+      );
+
+      try {
+        this.transport = new SSEClientTransport(url, {
+          requestInit: { headers },
+        });
+        await this.client!.connect(this.transport);
+        log.info({ serverId: this.config.id }, 'Connected via SSE transport (fallback)');
+      } catch (sseError) {
+        // Check if SSE also fails with auth error
+        if (this.isAuthError(sseError)) {
+          log.info({ serverId: this.config.id }, 'Server requires OAuth authentication (SSE)');
+          this.emit('auth-required', { serverId: this.config.id });
+        }
+        throw sseError;
+      }
+    }
+  }
+
+  /**
+   * Check if an error is an authentication error (401)
+   */
+  private isAuthError(error: unknown): boolean {
+    log.debug({ error, errorType: typeof error, isError: error instanceof Error }, 'Checking if auth error');
+
+    // Check Error instance message
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      if (message.includes('401') ||
+          message.includes('unauthorized') ||
+          message.includes('authentication required')) {
+        log.info({ serverId: this.config.id, message: error.message }, 'Detected auth error from Error message');
+        return true;
+      }
+    }
+
+    // Check plain object with code property
+    if (typeof error === 'object' && error !== null) {
+      const errorObj = error as Record<string, unknown>;
+
+      // Direct code check
+      if (errorObj.code === 401 || errorObj.status === 401) {
+        log.info({ serverId: this.config.id }, 'Detected auth error from error.code/status');
+        return true;
+      }
+
+      // Check nested event object (SSE errors have this structure)
+      if (typeof errorObj.event === 'object' && errorObj.event !== null) {
+        const event = errorObj.event as Record<string, unknown>;
+        if (event.code === 401 || event.status === 401) {
+          log.info({ serverId: this.config.id }, 'Detected auth error from error.event.code');
+          return true;
+        }
+      }
+
+      // Check if it has a message property with 401
+      if (typeof errorObj.message === 'string' && errorObj.message.includes('401')) {
+        log.info({ serverId: this.config.id }, 'Detected auth error from error.message string');
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Set auth provider (for reconnecting with auth)
+   */
+  setAuthProvider(authProvider: OAuthClientProvider): void {
+    this.options.authProvider = authProvider;
   }
 
   /**
@@ -294,12 +397,12 @@ export class MCPClientService extends EventEmitter {
     log.info({ serverId: this.config.id, reason }, 'Disconnecting from MCP server');
 
     try {
-      if (this.transport) {
-        await this.transport.close();
-        this.transport = null;
+      if (this.client) {
+        await this.client.close();
       }
 
       this.client = null;
+      this.transport = null;
       this.tools = [];
       this.connectionStatus = 'disconnected';
 

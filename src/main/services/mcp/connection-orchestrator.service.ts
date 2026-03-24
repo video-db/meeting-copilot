@@ -10,6 +10,7 @@ import { v4 as uuid } from 'uuid';
 import { logger } from '../../lib/logger';
 import { getConnectionRegistry, ConnectionRegistryService } from './connection-registry.service';
 import { getHealthMonitor, HealthMonitorService } from './health-monitor.service';
+import { getMCPAuthService, MCPAuthService, type MCPOAuthConfig } from './mcp-auth.service';
 import { MCPClientService } from './mcp-client.service';
 import {
   getAllMCPServers,
@@ -36,12 +37,41 @@ const log = logger.child({ module: 'mcp-orchestrator' });
 export class ConnectionOrchestratorService extends EventEmitter {
   private registry: ConnectionRegistryService;
   private healthMonitor: HealthMonitorService;
+  private authService: MCPAuthService;
   private initialized: boolean = false;
 
   constructor() {
     super();
     this.registry = getConnectionRegistry();
     this.healthMonitor = getHealthMonitor();
+    this.authService = getMCPAuthService();
+
+    // Forward auth events from registry
+    this.registry.on('auth-required', (data) => {
+      this.emit('auth-required', data);
+    });
+
+    // Forward auth events from auth service and auto-reconnect
+    this.authService.on('auth-success', async (data: { serverId: string }) => {
+      this.emit('auth-success', data);
+
+      // Auto-reconnect after successful OAuth
+      log.info({ serverId: data.serverId }, 'OAuth success, auto-reconnecting...');
+      try {
+        await this.connect(data.serverId);
+        log.info({ serverId: data.serverId }, 'Auto-reconnect after OAuth succeeded');
+      } catch (error) {
+        log.error({ serverId: data.serverId, error }, 'Auto-reconnect after OAuth failed');
+      }
+    });
+
+    this.authService.on('auth-error', (data) => {
+      this.emit('auth-error', data);
+    });
+
+    this.authService.on('tokens-refreshed', (data) => {
+      this.emit('tokens-refreshed', data);
+    });
   }
 
   /**
@@ -58,10 +88,13 @@ export class ConnectionOrchestratorService extends EventEmitter {
     // Load all servers from database
     const servers = getAllMCPServers();
 
-    // Register all servers
+    // Register all servers with auth provider for HTTP transport
     for (const server of servers) {
       const config = this.dbServerToConfig(server);
-      this.registry.register(config);
+      const options = config.transport === 'http'
+        ? { authProvider: this.createDefaultAuthProvider(config.id, config.name) }
+        : {};
+      this.registry.register(config, options);
     }
 
     // Connect to auto-connect servers
@@ -123,8 +156,11 @@ export class ConnectionOrchestratorService extends EventEmitter {
 
     const config = this.dbServerToConfig(server);
 
-    // Register the connection
-    this.registry.register(config);
+    // Register the connection with auth provider for HTTP transport
+    const options = config.transport === 'http'
+      ? { authProvider: this.createDefaultAuthProvider(config.id, config.name) }
+      : {};
+    this.registry.register(config, options);
 
     log.info({ serverId: id, name: request.name }, 'Created new MCP server');
 
@@ -364,6 +400,145 @@ export class ConnectionOrchestratorService extends EventEmitter {
     }
 
     return states;
+  }
+
+  /**
+   * Start OAuth authorization flow for a server
+   */
+  async startOAuthFlow(serverId: string, oauthConfig: MCPOAuthConfig): Promise<void> {
+    log.info({ serverId }, 'Starting OAuth flow for server');
+
+    try {
+      const tokens = await this.authService.authorize(oauthConfig);
+
+      // After successful auth, reconnect with the new tokens
+      const client = this.registry.getClient(serverId);
+      if (client) {
+        const authProvider = this.authService.createAuthProvider(serverId, oauthConfig);
+        client.setAuthProvider(authProvider);
+
+        // Try reconnecting
+        await this.connect(serverId);
+      }
+    } catch (error) {
+      log.error({ serverId, error }, 'OAuth flow failed');
+      throw error;
+    }
+  }
+
+  /**
+   * Connect with OAuth (if server requires auth)
+   */
+  async connectWithAuth(serverId: string, oauthConfig?: MCPOAuthConfig): Promise<MCPTool[]> {
+    const client = this.registry.get(serverId);
+    if (!client) {
+      throw new Error(`Server ${serverId} not registered`);
+    }
+
+    // If OAuth config provided and we have valid tokens, set up auth provider
+    if (oauthConfig && this.authService.hasValidToken(serverId)) {
+      // Check if tokens need refresh
+      if (this.authService.needsRefresh(serverId)) {
+        await this.authService.refreshTokens(serverId);
+      }
+
+      const authProvider = this.authService.createAuthProvider(serverId, oauthConfig);
+      client.setAuthProvider(authProvider);
+    }
+
+    return this.connect(serverId);
+  }
+
+  /**
+   * Check if a server requires OAuth
+   */
+  serverRequiresAuth(serverId: string): boolean {
+    return this.registry.requiresAuth(serverId);
+  }
+
+  /**
+   * Check if server has valid OAuth tokens
+   */
+  hasValidTokens(serverId: string): boolean {
+    return this.authService.hasValidToken(serverId);
+  }
+
+  /**
+   * Delete OAuth tokens for a server
+   */
+  deleteTokens(serverId: string): void {
+    this.authService.deleteTokens(serverId);
+  }
+
+  /**
+   * Create a default auth provider for HTTP servers
+   * This works with SDK-discovered OAuth (server provides OAuth metadata)
+   */
+  private createDefaultAuthProvider(serverId: string, serverName: string) {
+    const authService = this.authService;
+    const redirectUri = 'meetingcopilot://oauth/callback';
+
+    return {
+      get redirectUrl() {
+        return redirectUri;
+      },
+
+      get clientMetadata() {
+        return {
+          client_name: 'Meeting Copilot',
+          redirect_uris: [redirectUri],
+        };
+      },
+
+      clientInformation() {
+        // Return undefined to trigger dynamic client registration
+        // The SDK will register with the server and get a client_id
+        return undefined;
+      },
+
+      async saveClientInformation(info: { client_id: string; client_secret?: string }) {
+        // Store the dynamically registered client info
+        log.info({ serverId, clientId: info.client_id }, 'Saving dynamic client registration');
+        // We could persist this in DB if needed for future connections
+      },
+
+      async tokens() {
+        const tokens = authService.getTokens(serverId);
+        if (!tokens) return undefined;
+
+        return {
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+          token_type: tokens.tokenType,
+        };
+      },
+
+      async saveTokens(tokens: { access_token: string; token_type: string; refresh_token?: string; expires_in?: number }) {
+        authService.saveTokens(serverId, {
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          tokenType: tokens.token_type || 'Bearer',
+          expiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
+        });
+      },
+
+      async redirectToAuthorization(authorizationUrl: URL) {
+        const { shell } = await import('electron');
+        log.info({ serverId, authUrl: authorizationUrl.toString() }, 'Opening OAuth authorization URL');
+        await shell.openExternal(authorizationUrl.toString());
+      },
+
+      async saveCodeVerifier(verifier: string) {
+        // Store code verifier temporarily (in memory via authService)
+        (authService as any)._codeVerifiers = (authService as any)._codeVerifiers || new Map();
+        (authService as any)._codeVerifiers.set(serverId, verifier);
+      },
+
+      async codeVerifier() {
+        const verifiers = (authService as any)._codeVerifiers;
+        return verifiers?.get(serverId) || '';
+      },
+    };
   }
 
   /**

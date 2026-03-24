@@ -1,6 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcApi, RecorderEvent, PermissionStatus, StartRecordingParams } from '../shared/types/ipc.types';
 import type { Channel } from '../shared/schemas/capture.schema';
+import type {
+  CalendarApi,
+  CalendarEvents,
+  CalendarSignInResult,
+  CalendarEventsResult,
+  CalendarAuthStatusResult,
+  UpcomingMeeting,
+} from '../shared/types/calendar.types';
 
 // Copilot event types
 export interface CopilotTranscriptSegment {
@@ -142,6 +150,7 @@ export interface CopilotEvents {
 export interface MCPServerConfig {
   id: string;
   name: string;
+  description?: string;
   transport: 'stdio' | 'http';
   command?: string;
   args?: string[];
@@ -199,6 +208,36 @@ export interface MCPServerTemplate {
   setupInstructions?: string;
 }
 
+export interface MCPOAuthConfig {
+  serverId: string;
+  serverName: string;
+  authorizationUrl: string;
+  tokenUrl: string;
+  clientId: string;
+  clientSecret?: string;
+  scopes?: string[];
+  redirectUri?: string;
+}
+
+// Workflow Types
+export interface Workflow {
+  id: string;
+  name: string;
+  webhookUrl: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowApi {
+  getAll: () => Promise<{ success: boolean; workflows?: Workflow[]; error?: string }>;
+  get: (id: string) => Promise<{ success: boolean; workflow?: Workflow; error?: string }>;
+  create: (request: { name: string; webhookUrl: string; enabled?: boolean }) => Promise<{ success: boolean; workflow?: Workflow; error?: string }>;
+  update: (id: string, request: { name?: string; webhookUrl?: string; enabled?: boolean }) => Promise<{ success: boolean; workflow?: Workflow; error?: string }>;
+  delete: (id: string) => Promise<{ success: boolean; error?: string }>;
+  test: (webhookUrl: string) => Promise<{ success: boolean; statusCode?: number; error?: string; responseTime?: number }>;
+}
+
 export interface MCPApi {
   // Server management
   getServers: () => Promise<{ success: boolean; servers?: MCPServerConfig[]; connectionStates?: Record<string, { status: string; error?: string }>; error?: string }>;
@@ -250,6 +289,13 @@ export interface MCPApi {
   // Trigger Keywords
   getTriggerKeywords: () => Promise<{ success: boolean; keywords: string[]; error?: string }>;
   setTriggerKeywords: (keywords: string[]) => Promise<{ success: boolean; error?: string }>;
+
+  // OAuth
+  startOAuth: (serverId: string, oauthConfig: MCPOAuthConfig) => Promise<{ success: boolean; error?: string }>;
+  connectWithAuth: (serverId: string, oauthConfig?: MCPOAuthConfig) => Promise<{ success: boolean; tools?: MCPTool[]; error?: string }>;
+  requiresAuth: (serverId: string) => Promise<{ success: boolean; requiresAuth?: boolean; error?: string }>;
+  hasValidTokens: (serverId: string) => Promise<{ success: boolean; hasTokens?: boolean; error?: string }>;
+  deleteTokens: (serverId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface MCPEvents {
@@ -258,6 +304,10 @@ export interface MCPEvents {
   onServerConnected: (callback: (data: { serverId: string; tools: MCPTool[] }) => void) => () => void;
   onServerDisconnected: (callback: (data: { serverId: string; reason: string }) => void) => () => void;
   onServerError: (callback: (data: { serverId: string; error: string }) => void) => () => void;
+  // OAuth events
+  onAuthRequired: (callback: (data: { serverId: string; serverName: string }) => void) => () => void;
+  onAuthSuccess: (callback: (data: { serverId: string }) => void) => () => void;
+  onAuthError: (callback: (data: { serverId: string; error: string }) => void) => () => void;
 }
 
 const api: IpcApi = {
@@ -269,6 +319,22 @@ const api: IpcApi = {
     resumeTracks: (tracks: string[]) => ipcRenderer.invoke('recorder-resume-tracks', tracks),
     listChannels: (sessionToken: string, apiUrl?: string) =>
       ipcRenderer.invoke('recorder-list-channels', sessionToken, apiUrl),
+  },
+
+  liveAssist: {
+    start: () => ipcRenderer.invoke('live-assist:start'),
+    stop: () => ipcRenderer.invoke('live-assist:stop'),
+    addTranscript: (text: string, source: 'mic' | 'system_audio') =>
+      ipcRenderer.invoke('live-assist:add-transcript', text, source),
+    clear: () => ipcRenderer.invoke('live-assist:clear'),
+  },
+
+  liveAssistOn: {
+    onUpdate: (callback: (data: { assists: any[]; processedAt: number }) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('live-assist:update', listener);
+      return () => ipcRenderer.removeListener('live-assist:update', listener);
+    },
   },
 
   permissions: {
@@ -411,6 +477,15 @@ const api: IpcApi = {
     // Trigger Keywords
     getTriggerKeywords: () => ipcRenderer.invoke('mcp:get-trigger-keywords'),
     setTriggerKeywords: (keywords: string[]) => ipcRenderer.invoke('mcp:set-trigger-keywords', keywords),
+
+    // OAuth
+    startOAuth: (serverId: string, oauthConfig: MCPOAuthConfig) =>
+      ipcRenderer.invoke('mcp:start-oauth', serverId, oauthConfig),
+    connectWithAuth: (serverId: string, oauthConfig?: MCPOAuthConfig) =>
+      ipcRenderer.invoke('mcp:connect-with-auth', serverId, oauthConfig),
+    requiresAuth: (serverId: string) => ipcRenderer.invoke('mcp:requires-auth', serverId),
+    hasValidTokens: (serverId: string) => ipcRenderer.invoke('mcp:has-valid-tokens', serverId),
+    deleteTokens: (serverId: string) => ipcRenderer.invoke('mcp:delete-tokens', serverId),
   } as MCPApi,
 
   // MCP event listeners
@@ -440,7 +515,58 @@ const api: IpcApi = {
       ipcRenderer.on('mcp:server-error', listener);
       return () => ipcRenderer.removeListener('mcp:server-error', listener);
     },
+    // OAuth events
+    onAuthRequired: (callback: (data: { serverId: string; serverName: string }) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('mcp:auth-required', listener);
+      return () => ipcRenderer.removeListener('mcp:auth-required', listener);
+    },
+    onAuthSuccess: (callback: (data: { serverId: string }) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('mcp:auth-success', listener);
+      return () => ipcRenderer.removeListener('mcp:auth-success', listener);
+    },
+    onAuthError: (callback: (data: { serverId: string; error: string }) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('mcp:auth-error', listener);
+      return () => ipcRenderer.removeListener('mcp:auth-error', listener);
+    },
   } as MCPEvents,
+
+  // Google Calendar API
+  calendar: {
+    signIn: (): Promise<CalendarSignInResult> => ipcRenderer.invoke('calendar:sign-in'),
+    signOut: (): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('calendar:sign-out'),
+    isSignedIn: (): Promise<CalendarAuthStatusResult> => ipcRenderer.invoke('calendar:is-signed-in'),
+    getUpcomingEvents: (hours?: number): Promise<CalendarEventsResult> =>
+      ipcRenderer.invoke('calendar:get-events', hours),
+  } as CalendarApi,
+
+  // Calendar event listeners
+  calendarOn: {
+    onAuthRequired: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on('calendar:auth-required', listener);
+      return () => ipcRenderer.removeListener('calendar:auth-required', listener);
+    },
+    onEventsUpdated: (callback: (events: UpcomingMeeting[]) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: UpcomingMeeting[]) => callback(data);
+      ipcRenderer.on('calendar:events-updated', listener);
+      return () => ipcRenderer.removeListener('calendar:events-updated', listener);
+    },
+  } as CalendarEvents,
+
+  // Workflows API
+  workflows: {
+    getAll: () => ipcRenderer.invoke('workflows:get-all'),
+    get: (id: string) => ipcRenderer.invoke('workflows:get', id),
+    create: (request: { name: string; webhookUrl: string; enabled?: boolean }) =>
+      ipcRenderer.invoke('workflows:create', request),
+    update: (id: string, request: { name?: string; webhookUrl?: string; enabled?: boolean }) =>
+      ipcRenderer.invoke('workflows:update', id, request),
+    delete: (id: string) => ipcRenderer.invoke('workflows:delete', id),
+    test: (webhookUrl: string) => ipcRenderer.invoke('workflows:test', webhookUrl),
+  } as WorkflowApi,
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);
@@ -453,6 +579,9 @@ declare global {
       copilotOn: CopilotEvents;
       mcp: MCPApi;
       mcpOn: MCPEvents;
+      calendar: CalendarApi;
+      calendarOn: CalendarEvents;
+      workflows: WorkflowApi;
     };
   }
 }

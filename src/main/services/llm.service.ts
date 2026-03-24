@@ -322,29 +322,6 @@ export class LLMService {
     }
 
     const startTime = Date.now();
-    log.info({
-      apiBase: this.config.apiBase,
-      model: this.config.model,
-      toolCount: tools.length,
-      toolNames: tools.map(t => t.function.name),
-      messageCount: messages.length,
-      messageRoles: messages.map(m => m.role),
-    }, 'LLM tool call request starting');
-
-    // Debug: Log the full request payload
-    log.debug({
-      messages: messages.map(m => ({
-        role: m.role,
-        contentPreview: typeof m.content === 'string' ? m.content.slice(0, 200) : m.content,
-        hasToolCalls: !!m.tool_calls,
-        toolCallId: m.tool_call_id,
-      })),
-      tools: tools.map(t => ({
-        name: t.function.name,
-        description: t.function.description?.slice(0, 100),
-        paramKeys: Object.keys(t.function.parameters.properties || {}),
-      })),
-    }, 'LLM tool call request payload');
 
     try {
       const formattedMessages = this.formatMessages(messages);

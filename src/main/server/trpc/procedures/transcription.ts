@@ -33,11 +33,12 @@ async function startRealtimeTranscriptionWithWs(
   apiKey: string,
   micWsConnectionId?: string,
   sysAudioWsConnectionId?: string,
+  screenWsConnectionId?: string,
   apiUrl?: string
 ): Promise<void> {
   try {
     logger.info(
-      { sessionId: captureSessionId, micWsConnectionId, sysAudioWsConnectionId },
+      { sessionId: captureSessionId, micWsConnectionId, sysAudioWsConnectionId, screenWsConnectionId },
       '[Transcript] Starting transcription for session'
     );
 
@@ -50,8 +51,10 @@ async function startRealtimeTranscriptionWithWs(
 
     let mics: RTStream[] = [];
     let systemAudios: RTStream[] = [];
+    let screens: RTStream[] = [];
     const needsMic = Boolean(micWsConnectionId);
     const needsSystemAudio = Boolean(sysAudioWsConnectionId);
+    const needsScreen = Boolean(screenWsConnectionId);
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
@@ -98,16 +101,34 @@ async function startRealtimeTranscriptionWithWs(
           });
         }
 
+        // Find screen/display RTStreams
+        screens = session.getRTStream('screen');
+        if (screens.length === 0) {
+          screens = (session.rtstreams || []).filter((stream) => {
+            const name = (stream.name || '').toLowerCase();
+            const channelId = (stream.channelId || '').toLowerCase();
+            return (
+              name.includes('display') ||
+              name.includes('screen') ||
+              channelId.includes('display') ||
+              channelId.includes('screen')
+            );
+          });
+        }
+
         const hasRequiredMic = !needsMic || mics.length > 0;
         const hasRequiredSystemAudio = !needsSystemAudio || systemAudios.length > 0;
+        const hasRequiredScreen = !needsScreen || screens.length > 0;
 
-        if (hasRequiredMic && hasRequiredSystemAudio) {
+        if (hasRequiredMic && hasRequiredSystemAudio && hasRequiredScreen) {
           logger.info(
             {
               mics: mics.length,
               systemAudios: systemAudios.length,
+              screens: screens.length,
               needsMic,
               needsSystemAudio,
+              needsScreen,
             },
             '[Transcript] Found required RTStreams'
           );
@@ -118,8 +139,10 @@ async function startRealtimeTranscriptionWithWs(
               attempt: attempt + 1,
               mics: mics.length,
               systemAudios: systemAudios.length,
+              screens: screens.length,
               needsMic,
               needsSystemAudio,
+              needsScreen,
             },
             '[Transcript] Required RTStreams not ready yet, waiting...'
           );
@@ -134,14 +157,16 @@ async function startRealtimeTranscriptionWithWs(
       }
     }
 
-    if ((needsMic && mics.length === 0) || (needsSystemAudio && systemAudios.length === 0)) {
+    if ((needsMic && mics.length === 0) || (needsSystemAudio && systemAudios.length === 0) || (needsScreen && screens.length === 0)) {
       logger.error(
         {
           maxRetries: MAX_RETRIES,
           mics: mics.length,
           systemAudios: systemAudios.length,
+          screens: screens.length,
           needsMic,
           needsSystemAudio,
+          needsScreen,
         },
         '[Transcript] Failed to find required RTStreams after max retries'
       );
@@ -173,6 +198,15 @@ async function startRealtimeTranscriptionWithWs(
     } else if (systemAudios.length > 0) {
       logger.info('[Transcript] System audio stream found but no ws_connection_id provided, skipping');
     }
+
+    // Visual indexing is now controlled by user toggle via visualIndex.start procedure
+    // The screenWsConnectionId is passed to the renderer for on-demand activation
+    if (screens.length > 0) {
+      logger.info(
+        { rtstreamId: screens[0].id, screenWsConnectionId },
+        '[VisualIndex] Screen stream ready for visual indexing (user-controlled)'
+      );
+    }
   } catch (error) {
     logger.error(
       { error, sessionId: captureSessionId },
@@ -186,20 +220,20 @@ export const transcriptionRouter = router({
     .input(StartTranscriptionInputSchema)
     .output(StartTranscriptionOutputSchema)
     .mutation(async ({ input, ctx }) => {
-      const { sessionId, micWsConnectionId, sysAudioWsConnectionId } = input;
+      const { sessionId, micWsConnectionId, sysAudioWsConnectionId, screenWsConnectionId } = input;
 
       logger.info(
-        { sessionId, micWsConnectionId, sysAudioWsConnectionId },
-        'Starting transcription'
+        { sessionId, micWsConnectionId, sysAudioWsConnectionId, screenWsConnectionId },
+        'Starting transcription and visual indexing'
       );
 
       // Validate that at least one WebSocket connection ID is provided
-      if (!micWsConnectionId && !sysAudioWsConnectionId) {
+      if (!micWsConnectionId && !sysAudioWsConnectionId && !screenWsConnectionId) {
         logger.warn({ sessionId }, 'No WebSocket connection IDs provided');
         return {
           status: 'skipped',
           sessionId,
-          message: 'No WebSocket connection IDs provided, skipping transcription setup',
+          message: 'No WebSocket connection IDs provided, skipping transcription/visual setup',
         };
       }
 
@@ -225,6 +259,7 @@ export const transcriptionRouter = router({
         apiKey,
         micWsConnectionId,
         sysAudioWsConnectionId,
+        screenWsConnectionId,
         apiUrl
       ).catch((error) => {
         logger.error({ error, sessionId }, 'Background transcription task failed');
@@ -233,7 +268,7 @@ export const transcriptionRouter = router({
       return {
         status: 'started',
         sessionId,
-        message: 'Transcription startup initiated. Will poll for RTStreams and start when ready.',
+        message: 'Transcription and visual indexing startup initiated. Will poll for RTStreams and start when ready.',
       };
     }),
 });

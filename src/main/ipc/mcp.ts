@@ -20,6 +20,7 @@ import type {
   CreateMCPServerRequest,
   UpdateMCPServerRequest,
   MCPDisplayResult,
+  MCPOAuthConfig,
 } from '../../shared/types/mcp.types';
 import { v4 as uuid } from 'uuid';
 
@@ -92,6 +93,19 @@ export function setupMCPHandlers(): void {
 
   orchestrator.on('server-error', (data) => {
     sendToRenderer('mcp:server-error', data);
+  });
+
+  // Forward OAuth events to renderer
+  orchestrator.on('auth-required', (data) => {
+    sendToRenderer('mcp:auth-required', data);
+  });
+
+  orchestrator.on('auth-success', (data) => {
+    sendToRenderer('mcp:auth-success', data);
+  });
+
+  orchestrator.on('auth-error', (data) => {
+    sendToRenderer('mcp:auth-error', data);
   });
 
   // Server Management Handlers
@@ -388,6 +402,73 @@ export function setupMCPHandlers(): void {
     }
   });
 
+  // OAuth Handlers
+
+  /**
+   * Start OAuth flow for a server
+   */
+  ipcMain.handle('mcp:start-oauth', async (_event, serverId: string, oauthConfig: MCPOAuthConfig) => {
+    try {
+      await orchestrator.startOAuthFlow(serverId, oauthConfig);
+      return { success: true };
+    } catch (error) {
+      logger.error({ error, serverId }, 'Failed to start OAuth flow');
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
+  /**
+   * Connect with OAuth (checks for existing tokens first)
+   */
+  ipcMain.handle('mcp:connect-with-auth', async (_event, serverId: string, oauthConfig?: MCPOAuthConfig) => {
+    try {
+      const tools = await orchestrator.connectWithAuth(serverId, oauthConfig);
+      return { success: true, tools };
+    } catch (error) {
+      logger.error({ error, serverId }, 'Failed to connect with auth');
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
+  /**
+   * Check if server requires OAuth
+   */
+  ipcMain.handle('mcp:requires-auth', async (_event, serverId: string) => {
+    try {
+      const requiresAuth = orchestrator.serverRequiresAuth(serverId);
+      return { success: true, requiresAuth };
+    } catch (error) {
+      logger.error({ error, serverId }, 'Failed to check auth requirement');
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
+  /**
+   * Check if server has valid OAuth tokens
+   */
+  ipcMain.handle('mcp:has-valid-tokens', async (_event, serverId: string) => {
+    try {
+      const hasTokens = orchestrator.hasValidTokens(serverId);
+      return { success: true, hasTokens };
+    } catch (error) {
+      logger.error({ error, serverId }, 'Failed to check tokens');
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
+  /**
+   * Delete OAuth tokens for a server
+   */
+  ipcMain.handle('mcp:delete-tokens', async (_event, serverId: string) => {
+    try {
+      orchestrator.deleteTokens(serverId);
+      return { success: true };
+    } catch (error) {
+      logger.error({ error, serverId }, 'Failed to delete tokens');
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
   logger.info('MCP IPC handlers registered');
 }
 
@@ -412,6 +493,12 @@ export function removeMCPHandlers(): void {
   ipcMain.removeHandler('mcp:pin-result');
   ipcMain.removeHandler('mcp:get-trigger-keywords');
   ipcMain.removeHandler('mcp:set-trigger-keywords');
+  // OAuth handlers
+  ipcMain.removeHandler('mcp:start-oauth');
+  ipcMain.removeHandler('mcp:connect-with-auth');
+  ipcMain.removeHandler('mcp:requires-auth');
+  ipcMain.removeHandler('mcp:has-valid-tokens');
+  ipcMain.removeHandler('mcp:delete-tokens');
 
   logger.info('MCP IPC handlers removed');
 }

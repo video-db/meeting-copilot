@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useSessionStore } from '../stores/session.store';
 import { useTranscriptionStore } from '../stores/transcription.store';
+import { useVisualIndexStore } from '../stores/visual-index.store';
 import { useCopilotStore } from '../stores/copilot.store';
 import { getElectronAPI } from '../api/ipc';
-import type { RecorderEvent, TranscriptEvent } from '../../shared/types/ipc.types';
+import type { RecorderEvent, TranscriptEvent, VisualIndexEvent } from '../../shared/types/ipc.types';
 
 /**
  * Global hook to listen for recorder events from the main process.
@@ -13,10 +14,12 @@ import type { RecorderEvent, TranscriptEvent } from '../../shared/types/ipc.type
 export function useGlobalRecorderEvents() {
   const sessionStore = useSessionStore();
   const transcriptionStore = useTranscriptionStore();
+  const visualIndexStore = useVisualIndexStore();
 
   // Use refs to avoid re-subscribing when stores change
   const sessionStoreRef = useRef(sessionStore);
   const transcriptionStoreRef = useRef(transcriptionStore);
+  const visualIndexStoreRef = useRef(visualIndexStore);
 
   // Keep refs updated
   useEffect(() => {
@@ -28,6 +31,10 @@ export function useGlobalRecorderEvents() {
   }, [transcriptionStore]);
 
   useEffect(() => {
+    visualIndexStoreRef.current = visualIndexStore;
+  }, [visualIndexStore]);
+
+  useEffect(() => {
     const api = getElectronAPI();
     if (!api) return;
 
@@ -36,6 +43,7 @@ export function useGlobalRecorderEvents() {
     const unsubscribe = api.on.recorderEvent((event: RecorderEvent) => {
       const session = sessionStoreRef.current;
       const transcription = transcriptionStoreRef.current;
+      const visualIndex = visualIndexStoreRef.current;
 
       console.log('[GlobalRecorderEvents] Event received:', event.event, event.data);
 
@@ -67,19 +75,38 @@ export function useGlobalRecorderEvents() {
 
             // Forward transcript to copilot backend (for final segments only)
             const currentApi = getElectronAPI();
-            if (transcript.isFinal && useCopilotStore.getState().isCallActive && currentApi) {
-              // Map source to channel: 'mic' -> 'me', 'system_audio' -> 'them'
-              const channel: 'me' | 'them' = transcript.source === 'mic' ? 'me' : 'them';
+            if (transcript.isFinal && currentApi) {
+              // Forward to copilot if active
+              if (useCopilotStore.getState().isCallActive) {
+                const channel: 'me' | 'them' = transcript.source === 'mic' ? 'me' : 'them';
+                currentApi.copilot.sendTranscript(channel, {
+                  text: transcript.text,
+                  is_final: true,
+                  start: transcript.start,
+                  end: transcript.end,
+                }).catch((err: Error) => {
+                  console.warn('[GlobalRecorderEvents] Error forwarding transcript to copilot:', err);
+                });
+              }
 
-              currentApi.copilot.sendTranscript(channel, {
-                text: transcript.text,
-                is_final: true,
-                start: transcript.start,
-                end: transcript.end,
-              }).catch((err: Error) => {
-                console.warn('[GlobalRecorderEvents] Error forwarding transcript to copilot:', err);
+              // Forward to live assist service for real-time analysis
+              currentApi.liveAssist.addTranscript(transcript.text, transcript.source).catch((err: Error) => {
+                console.warn('[GlobalRecorderEvents] Error forwarding transcript to live assist:', err);
               });
             }
+          }
+          break;
+
+        case 'visual_index':
+          if (event.data && visualIndex.enabled) {
+            const visualData = event.data as VisualIndexEvent;
+            visualIndex.addItem({
+              text: visualData.text,
+              start: visualData.start,
+              end: visualData.end,
+              rtstreamId: visualData.rtstreamId,
+              rtstreamName: visualData.rtstreamName,
+            });
           }
           break;
 

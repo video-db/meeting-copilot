@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useSessionStore } from '../stores/session.store';
 import { useTranscriptionStore } from '../stores/transcription.store';
+import { useVisualIndexStore } from '../stores/visual-index.store';
 import { useConfigStore } from '../stores/config.store';
 import { useCopilotStore } from '../stores/copilot.store';
 import { useMCPStore } from '../stores/mcp.store';
@@ -60,6 +61,7 @@ export function useSession() {
 
     sessionStore.setStatus('starting');
     transcriptionStore.clear();
+    useVisualIndexStore.getState().clear();
     useMCPStore.getState().clearResults();
 
     try {
@@ -105,6 +107,8 @@ export function useSession() {
         accessToken,
         apiUrl: apiUrl || undefined,
         enableTranscription: transcriptionStore.enabled,
+        // Always create screen WebSocket when screen is enabled - user controls indexing via toggle
+        enableVisualIndex: streamsConfig.screen,
       });
 
       if (!result.success) {
@@ -120,11 +124,15 @@ export function useSession() {
         meetingChecklist: meetingSetup?.checklist,
       });
 
-      if (transcriptionStore.enabled && (result.micWsConnectionId || result.sysAudioWsConnectionId)) {
+      const hasTranscription = transcriptionStore.enabled && (result.micWsConnectionId || result.sysAudioWsConnectionId);
+      const hasVisualIndex = useVisualIndexStore.getState().enabled && result.screenWsConnectionId;
+
+      if (hasTranscription || hasVisualIndex) {
         await startTranscriptionMutation.mutateAsync({
           sessionId: captureSession.sessionId,
-          micWsConnectionId: result.micWsConnectionId,
-          sysAudioWsConnectionId: result.sysAudioWsConnectionId,
+          micWsConnectionId: transcriptionStore.enabled ? result.micWsConnectionId : undefined,
+          sysAudioWsConnectionId: transcriptionStore.enabled ? result.sysAudioWsConnectionId : undefined,
+          screenWsConnectionId: hasVisualIndex ? result.screenWsConnectionId : undefined,
         });
       }
 
@@ -142,7 +150,7 @@ export function useSession() {
         }
       }
 
-      sessionStore.startSession(captureSession.sessionId, sessionToken!, tokenExpiresAt!);
+      sessionStore.startSession(captureSession.sessionId, sessionToken!, tokenExpiresAt!, result.screenWsConnectionId);
     } catch (error) {
       sessionStore.setError(error instanceof Error ? error.message : 'Failed to start recording');
       sessionStore.setStatus('idle');
@@ -191,6 +199,7 @@ export function useSession() {
       }
 
       transcriptionStore.clear();
+      useVisualIndexStore.getState().clear();
 
       const copilotState = useCopilotStore.getState();
       if (!copilotState.callSummary) {
@@ -207,6 +216,7 @@ export function useSession() {
       sessionStore.stopSession();
 
       transcriptionStore.clear();
+      useVisualIndexStore.getState().clear();
       useCopilotStore.getState().reset();
     }
   }, [sessionStore, transcriptionStore, stopRecordingMutation]);
@@ -239,11 +249,29 @@ export function useSession() {
     [sessionStore]
   );
 
+  const pauseRecording = useCallback(async () => {
+    const api = getElectronAPI();
+    if (!api || sessionStore.status !== 'recording') return;
+
+    await api.capture.pauseTracks(['mic', 'system_audio', 'screen']);
+    sessionStore.setPaused(true);
+  }, [sessionStore]);
+
+  const resumeRecording = useCallback(async () => {
+    const api = getElectronAPI();
+    if (!api || sessionStore.status !== 'recording') return;
+
+    await api.capture.resumeTracks(['mic', 'system_audio', 'screen']);
+    sessionStore.setPaused(false);
+  }, [sessionStore]);
+
   return {
     ...sessionStore,
     startRecording,
     stopRecording,
     toggleStream,
+    pauseRecording,
+    resumeRecording,
     isRecording: sessionStore.status === 'recording',
     isStarting: sessionStore.status === 'starting',
     isStopping: sessionStore.status === 'stopping',

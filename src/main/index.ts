@@ -9,12 +9,18 @@ import {
   setMainWindow,
   setCopilotMainWindow,
   setMCPMainWindow,
+  setCalendarMainWindow,
+  setLiveAssistWindow,
   sendToRenderer,
   shutdownCaptureClient,
 } from './ipc';
+import { getTrayService, resetTrayService } from './services/tray.service';
+import { getCalendarPoller, resetCalendarPoller } from './services/calendar-poller.service';
+import { hasTokens } from './services/google-auth.service';
 import {
   getConnectionOrchestrator,
   resetConnectionOrchestrator,
+  getMCPAuthService,
 } from './services/mcp';
 import {
   loadAppConfig,
@@ -30,6 +36,68 @@ import { createSessionRecoveryService } from './services/session-recovery.servic
 
 let mainWindow: BrowserWindow | null = null;
 const isDev = !app.isPackaged;
+const PROTOCOL_NAME = 'meetingcopilot';
+
+// Track if app is quitting (for hide-to-tray behavior)
+let isAppQuitting = false;
+
+export function setAppQuitting(value: boolean): void {
+  isAppQuitting = value;
+}
+
+export function getAppQuitting(): boolean {
+  return isAppQuitting;
+}
+
+/**
+ * Register custom protocol handler for OAuth callbacks
+ * This allows OAuth providers to redirect back to the app via meetingcopilot://oauth/callback
+ */
+function setupProtocolHandler(): void {
+  // Register as default protocol handler (only works in packaged app)
+  if (app.isPackaged) {
+    const isRegistered = app.isDefaultProtocolClient(PROTOCOL_NAME);
+    if (!isRegistered) {
+      app.setAsDefaultProtocolClient(PROTOCOL_NAME);
+      logger.info({ protocol: PROTOCOL_NAME }, 'Registered as default protocol client');
+    }
+  }
+
+  // Handle protocol URL on macOS (when app is already running)
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    handleProtocolUrl(url);
+  });
+}
+
+/**
+ * Handle incoming protocol URL
+ */
+function handleProtocolUrl(url: string): void {
+  logger.info({ url }, 'Received protocol URL');
+
+  try {
+    const parsedUrl = new URL(url);
+
+    // Handle OAuth callback
+    if (parsedUrl.hostname === 'oauth' && parsedUrl.pathname === '/callback') {
+      const authService = getMCPAuthService();
+      authService.handleCallback(url).catch((error) => {
+        logger.error({ error, url }, 'Failed to handle OAuth callback');
+      });
+
+      // Focus the main window
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+      }
+    } else {
+      logger.warn({ url }, 'Unknown protocol URL path');
+    }
+  } catch (error) {
+    logger.error({ error, url }, 'Failed to parse protocol URL');
+  }
+}
 
 /**
  * Clean up stale recorder lock files so the recorder can start after crashes.
@@ -74,6 +142,8 @@ async function createWindow(): Promise<void> {
   setMainWindow(mainWindow);
   setCopilotMainWindow(mainWindow);
   setMCPMainWindow(mainWindow);
+  setCalendarMainWindow(mainWindow);
+  setLiveAssistWindow(mainWindow);
 
   if (isDev) {
     const VITE_DEV_PORT = 51730;
@@ -81,6 +151,18 @@ async function createWindow(): Promise<void> {
   } else {
     await mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   }
+
+  // Hide to tray instead of closing (unless app is quitting)
+  mainWindow.on('close', (event) => {
+    if (!isAppQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+      // On macOS, hide the dock icon when minimized to tray
+      if (process.platform === 'darwin') {
+        app.dock?.hide();
+      }
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -272,6 +354,14 @@ async function stopServices(): Promise<void> {
   }
   isShuttingDown = true;
 
+  // Stop calendar polling
+  logger.info('Stopping calendar poller...');
+  resetCalendarPoller();
+
+  // Destroy tray
+  logger.info('Destroying system tray...');
+  resetTrayService();
+
   await shutdownCaptureClient();
 
   // Shutdown MCP orchestrator
@@ -292,8 +382,38 @@ async function stopServices(): Promise<void> {
   removeIpcHandlers();
 }
 
+// Handle protocol URL from app launch (Windows/Linux cold start)
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    // Handle protocol URL from second instance (Windows/Linux)
+    const url = commandLine.find((arg) => arg.startsWith(`${PROTOCOL_NAME}://`));
+    if (url) {
+      handleProtocolUrl(url);
+    }
+
+    // Focus the main window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 app.whenReady().then(async () => {
   logger.info('App starting');
+
+  // Setup protocol handler for OAuth callbacks
+  setupProtocolHandler();
+
+  // Handle protocol URL from initial launch (macOS)
+  const launchUrl = process.argv.find((arg) => arg.startsWith(`${PROTOCOL_NAME}://`));
+  if (launchUrl) {
+    // Defer handling until services are ready
+    setTimeout(() => handleProtocolUrl(launchUrl), 1000);
+  }
 
   // Only packaged apps need VideoDB binary path and DYLD_LIBRARY_PATH patches.
   if (app.isPackaged) {
@@ -317,7 +437,22 @@ app.whenReady().then(async () => {
 
     await createWindow();
 
+    // Create system tray
+    if (mainWindow) {
+      getTrayService().create(mainWindow);
+      logger.info('System tray created');
+    }
+
     await autoRegister();
+
+    // Start calendar polling if already authenticated
+    if (hasTokens()) {
+      logger.info('Google tokens found, starting calendar polling');
+      const calendarPoller = getCalendarPoller();
+      calendarPoller.startPolling().catch((err) => {
+        logger.warn({ error: err.message }, 'Failed to start calendar polling on startup');
+      });
+    }
 
     // Recover any sessions that exported while app was closed (fire and forget)
     recoverPendingSessions().catch(() => {
@@ -331,10 +466,11 @@ app.whenReady().then(async () => {
   }
 });
 
+// Don't quit when window closes - tray keeps it alive
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // On non-macOS platforms, if we want the app to stay in tray,
+  // we just do nothing here. The tray keeps the app alive.
+  // Only quit if explicitly requested via tray menu.
 });
 
 app.on('activate', async () => {
@@ -344,6 +480,7 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', async (event) => {
+  isAppQuitting = true;
   if (!isShuttingDown) {
     event.preventDefault();
     logger.info('App shutting down');

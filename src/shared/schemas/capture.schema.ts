@@ -15,6 +15,7 @@ export const StartTranscriptionInputSchema = z.object({
   sessionId: z.string(),
   micWsConnectionId: z.string().optional(),
   sysAudioWsConnectionId: z.string().optional(),
+  screenWsConnectionId: z.string().optional(),
 });
 
 export const StartTranscriptionOutputSchema = z.object({

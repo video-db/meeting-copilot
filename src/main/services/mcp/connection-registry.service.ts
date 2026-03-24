@@ -5,8 +5,9 @@
  * Provides centralized access to all active MCP connections.
  */
 
+import { EventEmitter } from 'events';
 import { logger } from '../../lib/logger';
-import { MCPClientService } from './mcp-client.service';
+import { MCPClientService, type MCPClientOptions } from './mcp-client.service';
 import type {
   MCPServerConfig,
   MCPTool,
@@ -21,25 +22,32 @@ interface ConnectionEntry {
   status: MCPConnectionStatus;
   lastError?: string;
   connectedAt?: Date;
+  requiresAuth?: boolean;
 }
 
-export class ConnectionRegistryService {
+export class ConnectionRegistryService extends EventEmitter {
   private connections: Map<string, ConnectionEntry> = new Map();
+
+  constructor() {
+    super();
+  }
 
   /**
    * Register a new connection
    */
-  register(config: MCPServerConfig): MCPClientService {
+  register(config: MCPServerConfig, options: MCPClientOptions = {}): MCPClientService {
     if (this.connections.has(config.id)) {
       log.warn({ serverId: config.id }, 'Connection already registered, returning existing');
       return this.connections.get(config.id)!.client;
     }
 
-    const client = new MCPClientService(config);
+    const client = new MCPClientService(config, options);
 
     // Set up event listeners
     client.on('connected', ({ tools }) => {
       this.updateStatus(config.id, 'connected');
+      const entry = this.connections.get(config.id);
+      if (entry) entry.requiresAuth = false;
       log.info({ serverId: config.id, toolCount: tools.length }, 'Connection established');
     });
 
@@ -51,6 +59,13 @@ export class ConnectionRegistryService {
     client.on('error', ({ error }) => {
       this.updateStatus(config.id, 'error', error);
       log.error({ serverId: config.id, error }, 'Connection error');
+    });
+
+    client.on('auth-required', ({ serverId }) => {
+      const entry = this.connections.get(serverId);
+      if (entry) entry.requiresAuth = true;
+      this.emit('auth-required', { serverId, serverName: config.name });
+      log.info({ serverId }, 'Server requires OAuth authentication');
     });
 
     this.connections.set(config.id, {
@@ -222,6 +237,20 @@ export class ConnectionRegistryService {
    */
   hasConnections(): boolean {
     return this.getConnectedServerIds().length > 0;
+  }
+
+  /**
+   * Check if a server requires authentication
+   */
+  requiresAuth(serverId: string): boolean {
+    return this.connections.get(serverId)?.requiresAuth ?? false;
+  }
+
+  /**
+   * Get client instance (for setting auth provider)
+   */
+  getClient(serverId: string): MCPClientService | undefined {
+    return this.connections.get(serverId)?.client;
   }
 
   /**

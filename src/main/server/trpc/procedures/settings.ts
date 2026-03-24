@@ -22,6 +22,8 @@ import {
   getSettingsByCategory,
   getSetting,
   upsertSetting,
+  getCalendarPreferences,
+  upsertCalendarPreferences,
 } from '../../../db';
 import { v4 as uuid } from 'uuid';
 
@@ -272,5 +274,22 @@ export const settingsRouter = router({
         results.push(upsertSetting(setting));
       }
       return results;
+    }),
+
+  // -------------------------------------------------------------------------
+  // Calendar Preferences
+  // -------------------------------------------------------------------------
+
+  getCalendarPreferences: protectedProcedure.query(async () => {
+    return getCalendarPreferences();
+  }),
+
+  updateCalendarPreferences: protectedProcedure
+    .input(z.object({
+      notifyMinutesBefore: z.number().min(1).max(30).optional(),
+      recordingBehavior: z.enum(['always_ask', 'default_record', 'no_notification']).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      return upsertCalendarPreferences(input);
     }),
 });

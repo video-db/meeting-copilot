@@ -1,4 +1,10 @@
 import type { CaptureConfig, Channel } from '../schemas/capture.schema';
+import type {
+  CalendarApi,
+  CalendarEvents,
+  UpcomingMeeting,
+} from './calendar.types';
+import type { Workflow } from './workflow.types';
 
 export interface StartRecordingParams {
   config: CaptureConfig;
@@ -6,6 +12,7 @@ export interface StartRecordingParams {
   accessToken: string;
   apiUrl?: string;
   enableTranscription?: boolean;
+  enableVisualIndex?: boolean;
 }
 
 export interface RecorderEvent {
@@ -14,6 +21,7 @@ export interface RecorderEvent {
     | 'recording:stopped'
     | 'recording:error'
     | 'transcript'
+    | 'visual_index'
     | 'upload:progress'
     | 'upload:complete'
     | 'error';
@@ -26,6 +34,14 @@ export interface TranscriptEvent {
   source: 'mic' | 'system_audio';
   start: number; // epoch seconds from WebSocket
   end: number;   // epoch seconds from WebSocket
+}
+
+export interface VisualIndexEvent {
+  text: string;
+  start: number; // epoch ms from WebSocket
+  end: number;   // epoch ms from WebSocket
+  rtstreamId?: string;
+  rtstreamName?: string;
 }
 
 export interface UploadProgressEvent {
@@ -46,6 +62,8 @@ export interface StartRecordingResult {
   // WebSocket connection IDs for real-time transcription (like Python meeting-copilot)
   micWsConnectionId?: string;
   sysAudioWsConnectionId?: string;
+  // WebSocket connection ID for visual indexing (screen)
+  screenWsConnectionId?: string;
 }
 
 export interface StopRecordingResult {
@@ -150,6 +168,26 @@ export interface CopilotConfig {
   enableNudges: boolean;
 }
 
+export interface LiveAssistApi {
+  start: () => Promise<{ success: boolean }>;
+  stop: () => Promise<{ success: boolean }>;
+  addTranscript: (text: string, source: 'mic' | 'system_audio') => Promise<{ success: boolean }>;
+  clear: () => Promise<{ success: boolean }>;
+}
+
+export interface LiveAssistEvents {
+  onUpdate: (callback: (data: { assists: any[]; processedAt: number }) => void) => () => void;
+}
+
+export interface WorkflowsApi {
+  getAll: () => Promise<{ success: boolean; workflows?: Workflow[]; error?: string }>;
+  get: (id: string) => Promise<{ success: boolean; workflow?: Workflow; error?: string }>;
+  create: (request: { name: string; webhookUrl: string; enabled?: boolean }) => Promise<{ success: boolean; workflow?: Workflow; error?: string }>;
+  update: (id: string, request: { name?: string; webhookUrl?: string; enabled?: boolean }) => Promise<{ success: boolean; workflow?: Workflow; error?: string }>;
+  delete: (id: string) => Promise<{ success: boolean; error?: string }>;
+  test: (webhookUrl: string) => Promise<{ success: boolean; statusCode?: number; error?: string; responseTime?: number }>;
+}
+
 export interface IpcApi {
   capture: {
     startRecording: (params: StartRecordingParams) => Promise<StartRecordingResult>;
@@ -158,6 +196,8 @@ export interface IpcApi {
     resumeTracks: (tracks: string[]) => Promise<void>;
     listChannels: (sessionToken: string, apiUrl?: string) => Promise<Channel[]>;
   };
+  liveAssist: LiveAssistApi;
+  liveAssistOn: LiveAssistEvents;
   permissions: {
     checkMicPermission: () => Promise<boolean>;
     checkScreenPermission: () => Promise<boolean>;
@@ -224,6 +264,9 @@ export interface IpcApi {
     onServerDisconnected: (callback: (data: { serverId: string; reason: string }) => void) => () => void;
     onServerError: (callback: (data: { serverId: string; error: string }) => void) => () => void;
   };
+  calendar: CalendarApi;
+  calendarOn: CalendarEvents;
+  workflows: WorkflowsApi;
 }
 
 export type IpcChannel =

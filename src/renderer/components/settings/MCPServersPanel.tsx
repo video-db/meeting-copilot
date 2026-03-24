@@ -6,12 +6,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Badge } from '../ui/badge';
-import { Switch } from '../ui/switch';
 import { ScrollArea } from '../ui/scroll-area';
 import {
   Dialog,
@@ -21,13 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,12 +38,90 @@ import {
   Check,
   RefreshCw,
   ExternalLink,
-  Zap,
-  X,
+  ChevronDown,
 } from 'lucide-react';
 import { useMCP } from '../../hooks/useMCP';
-import { cn } from '../../lib/utils';
 import type { MCPServerConfig, MCPServerTemplate } from '../../../preload/index';
+
+// Toggle Component
+function Toggle({
+  enabled,
+  onChange,
+}: {
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
+  return (
+    <button
+      onClick={() => onChange(!enabled)}
+      className={`w-[38px] h-[22px] rounded-full relative transition-colors ${
+        enabled ? 'bg-[#ec5b16]' : 'bg-[#e4e4ec]'
+      }`}
+    >
+      <div
+        className={`absolute size-[18px] bg-white rounded-full top-[2px] shadow-[0px_1px_3px_0px_rgba(0,0,0,0.15)] transition-all ${
+          enabled ? 'left-[18px]' : 'left-[2px]'
+        }`}
+      />
+    </button>
+  );
+}
+
+// Custom Select Component
+function CustomSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string; description?: string }[];
+  placeholder?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find((o) => o.value === value);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-[12px] py-[10px] text-[14px] bg-white border border-[#ededf3] rounded-[10px] outline-none focus:border-[#ec5b16] focus:ring-1 focus:ring-[#ec5b16]/20 transition-colors text-left"
+      >
+        <span className={selectedOption ? 'text-[#141420]' : 'text-[#969696]'}>
+          {selectedOption?.label || placeholder}
+        </span>
+        <ChevronDown className={`h-[14px] w-[14px] text-[#969696] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-[4px] bg-white border border-[#ededf3] rounded-[10px] shadow-[0px_4px_16px_0px_rgba(0,0,0,0.1)] overflow-hidden">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              className={`w-full px-[12px] py-[10px] text-left hover:bg-[#f7f7f7] transition-colors ${
+                option.value === value ? 'bg-[#fff5ec]' : ''
+              }`}
+            >
+              <div className="flex items-center gap-[8px]">
+                <Server className="h-[14px] w-[14px] text-[#464646]" />
+                <span className="text-[14px] text-[#141420]">{option.label}</span>
+              </div>
+              {option.description && (
+                <p className="text-[12px] text-[#969696] mt-[2px] ml-[22px]">{option.description}</p>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Server Card Component
 
@@ -87,112 +152,109 @@ function ServerCard({
     switch (status) {
       case 'connected':
         return (
-          <Badge className="bg-green-500 text-white">
-            <Wifi className="h-3 w-3 mr-1" />
-            Connected
-          </Badge>
+          <div className="flex items-center gap-[4px] px-[8px] py-[3px] bg-[#ecfdf5] border border-[#a7f3d0] rounded-[6px]">
+            <Wifi className="h-[12px] w-[12px] text-[#059669]" />
+            <span className="text-[11px] font-medium text-[#059669]">Connected</span>
+          </div>
         );
       case 'connecting':
         return (
-          <Badge variant="secondary" className="animate-pulse">
-            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-            Connecting
-          </Badge>
+          <div className="flex items-center gap-[4px] px-[8px] py-[3px] bg-[#fff5ec] border border-[#fed7aa] rounded-[6px] animate-pulse">
+            <Loader2 className="h-[12px] w-[12px] text-[#ec5b16] animate-spin" />
+            <span className="text-[11px] font-medium text-[#ec5b16]">Connecting</span>
+          </div>
         );
       case 'error':
         return (
-          <Badge variant="destructive">
-            <AlertCircle className="h-3 w-3 mr-1" />
-            Error
-          </Badge>
+          <div className="flex items-center gap-[4px] px-[8px] py-[3px] bg-[#fef2f2] border border-[#fecaca] rounded-[6px]">
+            <AlertCircle className="h-[12px] w-[12px] text-[#dc2626]" />
+            <span className="text-[11px] font-medium text-[#dc2626]">Error</span>
+          </div>
         );
       default:
         return (
-          <Badge variant="outline">
-            <WifiOff className="h-3 w-3 mr-1" />
-            Disconnected
-          </Badge>
+          <div className="flex items-center gap-[4px] px-[8px] py-[3px] bg-[#f7f7f7] border border-[#ededf3] rounded-[6px]">
+            <WifiOff className="h-[12px] w-[12px] text-[#969696]" />
+            <span className="text-[11px] font-medium text-[#969696]">Disconnected</span>
+          </div>
         );
     }
   };
 
   return (
-    <Card className={cn('transition-all', !server.isEnabled && 'opacity-60')}>
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <Server className="h-4 w-4 text-slate-500" />
-              <CardTitle className="text-base">{server.name}</CardTitle>
+    <div className={`bg-white border border-[#ededf3] rounded-[12px] shadow-[0px_1.272px_15.267px_0px_rgba(0,0,0,0.05)] transition-all ${!server.isEnabled ? 'opacity-60' : ''}`}>
+      <div className="px-[16px] py-[14px]">
+        <div className="flex items-start justify-between gap-[12px] mb-[12px]">
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <div className="flex items-center gap-[8px] mb-[4px]">
+              <Server className="h-[16px] w-[16px] text-[#464646] flex-shrink-0" />
+              <h4 className="text-[14px] font-semibold text-[#141420] truncate">{server.name}</h4>
             </div>
-            <CardDescription className="text-xs">
+            <p className="text-[12px] text-[#969696] truncate">
               {server.transport === 'stdio' ? server.command : server.url}
-            </CardDescription>
+            </p>
           </div>
-          {getStatusBadge()}
+          <div className="flex-shrink-0">{getStatusBadge()}</div>
         </div>
-      </CardHeader>
-      <CardContent className="pt-2">
+
         {connectionState?.error && (
-          <p className="text-xs text-red-500 mb-3 p-2 bg-red-50 dark:bg-red-950/30 rounded">
-            {connectionState.error}
-          </p>
+          <div className="p-[8px] bg-[#fef2f2] rounded-[8px] mb-[12px]">
+            <p className="text-[12px] text-[#dc2626]">{connectionState.error}</p>
+          </div>
         )}
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={server.isEnabled}
-                onCheckedChange={(checked) => onToggleEnabled(server.id, checked)}
-                id={`enabled-${server.id}`}
+          <div className="flex items-center gap-[12px]">
+            <div className="flex items-center gap-[6px]">
+              <Toggle
+                enabled={server.isEnabled}
+                onChange={(checked) => onToggleEnabled(server.id, checked)}
               />
-              <Label htmlFor={`enabled-${server.id}`} className="text-xs">
-                Enabled
-              </Label>
+              <span className="text-[12px] text-[#464646]">Enabled</span>
             </div>
-            <Badge variant="outline" className="text-xs">
-              {server.transport}
-            </Badge>
+            <div className="px-[8px] py-[2px] bg-[#f7f7f7] border border-[#ededf3] rounded-[6px]">
+              <span className="text-[11px] font-medium text-[#464646]">{server.transport}</span>
+            </div>
             {server.autoConnect && (
-              <Badge variant="secondary" className="text-xs">
-                Auto-connect
-              </Badge>
+              <div className="px-[8px] py-[2px] bg-[#fff5ec] border border-[#fed7aa] rounded-[6px]">
+                <span className="text-[11px] font-medium text-[#ec5b16]">Auto-connect</span>
+              </div>
             )}
           </div>
 
-          <div className="flex gap-1">
+          <div className="flex items-center gap-[4px]">
             {status === 'connected' ? (
-              <Button
-                variant="outline"
-                size="sm"
+              <button
                 onClick={() => onDisconnect(server.id)}
                 disabled={isConnecting}
+                className="px-[12px] py-[6px] border border-[#ededf3] rounded-[8px] text-[12px] font-medium text-[#464646] hover:bg-[#f7f7f7] transition-colors disabled:opacity-50"
               >
                 Disconnect
-              </Button>
+              </button>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
+              <button
                 onClick={() => onConnect(server.id)}
                 disabled={isConnecting || !server.isEnabled}
+                className="px-[12px] py-[6px] bg-[#ec5b16] hover:bg-[#d9520f] rounded-[8px] text-[12px] font-medium text-white transition-colors disabled:opacity-50"
               >
                 {isConnecting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-[14px] w-[14px] animate-spin" />
                 ) : (
                   'Connect'
                 )}
-              </Button>
+              </button>
             )}
-            <Button variant="ghost" size="icon" onClick={() => onEdit(server)}>
-              <Pencil className="h-4 w-4" />
-            </Button>
+            <button
+              onClick={() => onEdit(server)}
+              className="w-[32px] h-[32px] flex items-center justify-center rounded-[8px] hover:bg-[#f7f7f7] transition-colors"
+            >
+              <Pencil className="h-[14px] w-[14px] text-[#464646]" />
+            </button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Trash2 className="h-4 w-4 text-red-500" />
-                </Button>
+                <button className="w-[32px] h-[32px] flex items-center justify-center rounded-[8px] hover:bg-[#fef2f2] transition-colors">
+                  <Trash2 className="h-[14px] w-[14px] text-[#dc2626]" />
+                </button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -214,8 +276,8 @@ function ServerCard({
             </AlertDialog>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -320,14 +382,25 @@ function AddServerDialog({
 
   const selectedTemplateData = templates.find((t) => t.id === selectedTemplate);
 
+  const templateOptions = templates.map((t) => ({
+    value: t.id,
+    label: t.name,
+    description: t.description,
+  }));
+
+  const transportOptions = [
+    { value: 'stdio', label: 'Stdio (Local Process)' },
+    { value: 'http', label: 'HTTP/SSE (Remote)' },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[85vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
-          <DialogTitle>
+        <DialogHeader className="shrink-0 px-[24px] pt-[24px] pb-[16px] border-b border-[#ededf3]">
+          <DialogTitle className="text-[18px] font-semibold text-[#141420]">
             {editingServer ? 'Edit MCP Server' : 'Add MCP Server'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-[13px] text-[#969696]">
             {editingServer
               ? 'Update the server configuration.'
               : 'Connect to an MCP server for CRM, docs, or other integrations.'}
@@ -335,97 +408,80 @@ function AddServerDialog({
         </DialogHeader>
 
         <ScrollArea className="flex-1">
-          <div className="space-y-4 pl-6 pr-8 pb-4">
+          <div className="space-y-[16px] px-[24px] py-[20px]">
           {/* Template Selection */}
           {!editingServer && (
-            <div className="space-y-2">
-              <Label>Start from template (optional)</Label>
-              <Select value={selectedTemplate} onValueChange={handleTemplateSelect}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a template..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      <div className="flex items-center gap-2">
-                        <Server className="h-4 w-4" />
-                        <span>{template.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-[6px]">
+              <label className="text-[13px] font-medium text-[#141420]">Start from template (optional)</label>
+              <CustomSelect
+                value={selectedTemplate}
+                onChange={handleTemplateSelect}
+                options={templateOptions}
+                placeholder="Choose a template..."
+              />
               {selectedTemplateData && (
-                <p className="text-xs text-slate-500">{selectedTemplateData.description}</p>
+                <p className="text-[12px] text-[#969696]">{selectedTemplateData.description}</p>
               )}
             </div>
           )}
 
           {/* Name */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Server Name</Label>
-            <Input
-              id="name"
+          <div className="space-y-[6px]">
+            <label className="text-[13px] font-medium text-[#141420]">Server Name</label>
+            <input
+              type="text"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="e.g., HubSpot CRM"
-              required
+              className="w-full px-[12px] py-[10px] text-[14px] text-[#141420] bg-white border border-[#ededf3] rounded-[10px] outline-none focus:border-[#ec5b16] focus:ring-1 focus:ring-[#ec5b16]/20 transition-colors placeholder:text-[#969696]"
             />
           </div>
 
           {/* Transport Type */}
-          <div className="space-y-2">
-            <Label>Transport Type</Label>
-            <Select
+          <div className="space-y-[6px]">
+            <label className="text-[13px] font-medium text-[#141420]">Transport Type</label>
+            <CustomSelect
               value={form.transport}
-              onValueChange={(v) => setForm({ ...form, transport: v as 'stdio' | 'http' })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="stdio">Stdio (Local Process)</SelectItem>
-                <SelectItem value="http">HTTP/SSE (Remote)</SelectItem>
-              </SelectContent>
-            </Select>
+              onChange={(v) => setForm({ ...form, transport: v as 'stdio' | 'http' })}
+              options={transportOptions}
+            />
           </div>
 
           {/* Stdio Config */}
           {form.transport === 'stdio' && (
             <>
-              <div className="space-y-2">
-                <Label htmlFor="command">Command</Label>
-                <Input
-                  id="command"
+              <div className="space-y-[6px]">
+                <label className="text-[13px] font-medium text-[#141420]">Command</label>
+                <input
+                  type="text"
                   value={form.command}
                   onChange={(e) => setForm({ ...form, command: e.target.value })}
                   placeholder="e.g., npx"
-                  required
+                  className="w-full px-[12px] py-[10px] text-[14px] text-[#141420] bg-white border border-[#ededf3] rounded-[10px] outline-none focus:border-[#ec5b16] focus:ring-1 focus:ring-[#ec5b16]/20 transition-colors placeholder:text-[#969696]"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="args">Arguments (space-separated)</Label>
-                <Input
-                  id="args"
+              <div className="space-y-[6px]">
+                <label className="text-[13px] font-medium text-[#141420]">Arguments (space-separated)</label>
+                <input
+                  type="text"
                   value={form.args}
                   onChange={(e) => setForm({ ...form, args: e.target.value })}
                   placeholder="e.g., -y @modelcontextprotocol/server-memory"
+                  className="w-full px-[12px] py-[10px] text-[14px] text-[#141420] bg-white border border-[#ededf3] rounded-[10px] outline-none focus:border-[#ec5b16] focus:ring-1 focus:ring-[#ec5b16]/20 transition-colors placeholder:text-[#969696]"
                 />
               </div>
 
               {/* Environment Variables for STDIO */}
-              <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                <div className="flex items-center justify-between">
+              <div className="p-[16px] bg-[#f7f7f7] rounded-[12px] border border-[#ededf3]">
+                <div className="flex items-center justify-between mb-[12px]">
                   <div>
-                    <Label className="text-sm font-medium">Environment Variables</Label>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-[13px] font-medium text-[#141420]">Environment Variables</p>
+                    <p className="text-[12px] text-[#969696] mt-[2px]">
                       Add environment variables for the process (e.g., API_KEY, CODA_TOKEN)
                     </p>
                   </div>
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
                     onClick={() => {
                       const key = `ENV_VAR_${Object.keys(form.env).length + 1}`;
                       setForm({
@@ -433,60 +489,57 @@ function AddServerDialog({
                         env: { ...form.env, [key]: '' },
                       });
                     }}
+                    className="flex items-center gap-[4px] px-[10px] py-[6px] border border-[#ededf3] rounded-[8px] bg-white hover:bg-[#f7f7f7] text-[12px] font-medium text-[#464646] transition-colors"
                   >
-                    <Plus className="h-3 w-3 mr-1" />
+                    <Plus className="h-[12px] w-[12px]" />
                     Add Variable
-                  </Button>
+                  </button>
                 </div>
                 {Object.keys(form.env).length > 0 && (
-                  <div className="space-y-3 pt-2">
+                  <div className="space-y-[8px]">
                     {Object.entries(form.env).map(([key, value], index) => (
-                      <div key={index} className="flex gap-3 items-center">
-                        <div className="flex-1">
-                          <Input
-                            placeholder="Variable name (e.g., API_KEY)"
-                            value={key}
-                            onChange={(e) => {
-                              const newEnv = { ...form.env };
-                              delete newEnv[key];
-                              newEnv[e.target.value] = value;
-                              setForm({ ...form, env: newEnv });
-                            }}
-                            className="font-mono text-sm"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <Input
-                            placeholder="Value (stored securely)"
-                            type="password"
-                            value={value}
-                            onChange={(e) => {
-                              setForm({
-                                ...form,
-                                env: { ...form.env, [key]: e.target.value },
-                              });
-                            }}
-                          />
-                        </div>
-                        <Button
+                      <div key={index} className="flex gap-[8px] items-center">
+                        <input
+                          type="text"
+                          placeholder="Variable name (e.g., API_KEY)"
+                          value={key}
+                          onChange={(e) => {
+                            const newEnv = { ...form.env };
+                            delete newEnv[key];
+                            newEnv[e.target.value] = value;
+                            setForm({ ...form, env: newEnv });
+                          }}
+                          className="flex-1 px-[10px] py-[8px] text-[13px] text-[#141420] bg-white border border-[#ededf3] rounded-[8px] outline-none focus:border-[#ec5b16] font-mono placeholder:text-[#969696]"
+                        />
+                        <input
+                          type="password"
+                          placeholder="Value (stored securely)"
+                          value={value}
+                          onChange={(e) => {
+                            setForm({
+                              ...form,
+                              env: { ...form.env, [key]: e.target.value },
+                            });
+                          }}
+                          className="flex-1 px-[10px] py-[8px] text-[13px] text-[#141420] bg-white border border-[#ededf3] rounded-[8px] outline-none focus:border-[#ec5b16] placeholder:text-[#969696]"
+                        />
+                        <button
                           type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0 hover:bg-red-50 dark:hover:bg-red-950/30"
                           onClick={() => {
                             const newEnv = { ...form.env };
                             delete newEnv[key];
                             setForm({ ...form, env: newEnv });
                           }}
+                          className="w-[32px] h-[32px] flex items-center justify-center rounded-[8px] hover:bg-[#fef2f2] transition-colors"
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+                          <Trash2 className="h-[14px] w-[14px] text-[#dc2626]" />
+                        </button>
                       </div>
                     ))}
                   </div>
                 )}
                 {Object.keys(form.env).length === 0 && (
-                  <p className="text-xs text-slate-400 dark:text-slate-500 italic pt-1">
+                  <p className="text-[12px] text-[#969696] italic">
                     No environment variables configured
                   </p>
                 )}
@@ -497,30 +550,28 @@ function AddServerDialog({
           {/* HTTP Config */}
           {form.transport === 'http' && (
             <>
-              <div className="space-y-2">
-                <Label htmlFor="url">Server URL</Label>
-                <Input
-                  id="url"
+              <div className="space-y-[6px]">
+                <label className="text-[13px] font-medium text-[#141420]">Server URL</label>
+                <input
+                  type="url"
                   value={form.url}
                   onChange={(e) => setForm({ ...form, url: e.target.value })}
                   placeholder="https://mcp-server.example.com"
-                  required
+                  className="w-full px-[12px] py-[10px] text-[14px] text-[#141420] bg-white border border-[#ededf3] rounded-[10px] outline-none focus:border-[#ec5b16] focus:ring-1 focus:ring-[#ec5b16]/20 transition-colors placeholder:text-[#969696]"
                 />
               </div>
 
               {/* Custom Headers */}
-              <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                <div className="flex items-center justify-between">
+              <div className="p-[16px] bg-[#f7f7f7] rounded-[12px] border border-[#ededf3]">
+                <div className="flex items-center justify-between mb-[12px]">
                   <div>
-                    <Label className="text-sm font-medium">Custom Headers</Label>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-[13px] font-medium text-[#141420]">Custom Headers</p>
+                    <p className="text-[12px] text-[#969696] mt-[2px]">
                       Add custom HTTP headers for authentication (e.g., Authorization, X-API-Key)
                     </p>
                   </div>
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
                     onClick={() => {
                       const key = `Header-${Object.keys(form.headers).length + 1}`;
                       setForm({
@@ -528,60 +579,57 @@ function AddServerDialog({
                         headers: { ...form.headers, [key]: '' },
                       });
                     }}
+                    className="flex items-center gap-[4px] px-[10px] py-[6px] border border-[#ededf3] rounded-[8px] bg-white hover:bg-[#f7f7f7] text-[12px] font-medium text-[#464646] transition-colors"
                   >
-                    <Plus className="h-3 w-3 mr-1" />
+                    <Plus className="h-[12px] w-[12px]" />
                     Add Header
-                  </Button>
+                  </button>
                 </div>
                 {Object.keys(form.headers).length > 0 && (
-                  <div className="space-y-3 pt-2">
+                  <div className="space-y-[8px]">
                     {Object.entries(form.headers).map(([key, value], index) => (
-                      <div key={index} className="flex gap-3 items-center">
-                        <div className="flex-1">
-                          <Input
-                            placeholder="Header name (e.g., Authorization)"
-                            value={key}
-                            onChange={(e) => {
-                              const newHeaders = { ...form.headers };
-                              delete newHeaders[key];
-                              newHeaders[e.target.value] = value;
-                              setForm({ ...form, headers: newHeaders });
-                            }}
-                            className="font-mono text-sm"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <Input
-                            placeholder="Value (stored securely)"
-                            type="password"
-                            value={value}
-                            onChange={(e) => {
-                              setForm({
-                                ...form,
-                                headers: { ...form.headers, [key]: e.target.value },
-                              });
-                            }}
-                          />
-                        </div>
-                        <Button
+                      <div key={index} className="flex gap-[8px] items-center">
+                        <input
+                          type="text"
+                          placeholder="Header name (e.g., Authorization)"
+                          value={key}
+                          onChange={(e) => {
+                            const newHeaders = { ...form.headers };
+                            delete newHeaders[key];
+                            newHeaders[e.target.value] = value;
+                            setForm({ ...form, headers: newHeaders });
+                          }}
+                          className="flex-1 px-[10px] py-[8px] text-[13px] text-[#141420] bg-white border border-[#ededf3] rounded-[8px] outline-none focus:border-[#ec5b16] font-mono placeholder:text-[#969696]"
+                        />
+                        <input
+                          type="password"
+                          placeholder="Value (stored securely)"
+                          value={value}
+                          onChange={(e) => {
+                            setForm({
+                              ...form,
+                              headers: { ...form.headers, [key]: e.target.value },
+                            });
+                          }}
+                          className="flex-1 px-[10px] py-[8px] text-[13px] text-[#141420] bg-white border border-[#ededf3] rounded-[8px] outline-none focus:border-[#ec5b16] placeholder:text-[#969696]"
+                        />
+                        <button
                           type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0 hover:bg-red-50 dark:hover:bg-red-950/30"
                           onClick={() => {
                             const newHeaders = { ...form.headers };
                             delete newHeaders[key];
                             setForm({ ...form, headers: newHeaders });
                           }}
+                          className="w-[32px] h-[32px] flex items-center justify-center rounded-[8px] hover:bg-[#fef2f2] transition-colors"
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+                          <Trash2 className="h-[14px] w-[14px] text-[#dc2626]" />
+                        </button>
                       </div>
                     ))}
                   </div>
                 )}
                 {Object.keys(form.headers).length === 0 && (
-                  <p className="text-xs text-slate-400 dark:text-slate-500 italic pt-1">
+                  <p className="text-[12px] text-[#969696] italic">
                     No custom headers configured
                   </p>
                 )}
@@ -591,21 +639,20 @@ function AddServerDialog({
 
           {/* Environment Variables (for templates that require them) */}
           {selectedTemplateData?.requiredEnvVars && selectedTemplateData.requiredEnvVars.length > 0 && (
-            <div className="space-y-4 p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
-              <div>
-                <Label className="text-sm font-medium text-amber-800 dark:text-amber-200">Required Credentials</Label>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+            <div className="p-[16px] bg-[#fff5ec] rounded-[12px] border border-[#fed7aa]">
+              <div className="mb-[12px]">
+                <p className="text-[13px] font-medium text-[#ec5b16]">Required Credentials</p>
+                <p className="text-[12px] text-[#d9520f] mt-[2px]">
                   These credentials are required for this template to work
                 </p>
               </div>
-              <div className="space-y-4 pt-2">
+              <div className="space-y-[12px]">
                 {selectedTemplateData.requiredEnvVars.map((envVar) => (
-                  <div key={envVar.key} className="space-y-2">
-                    <Label htmlFor={envVar.key} className="text-sm font-medium">
+                  <div key={envVar.key} className="space-y-[6px]">
+                    <label className="text-[13px] font-medium text-[#141420]">
                       {envVar.label}
-                    </Label>
-                    <Input
-                      id={envVar.key}
+                    </label>
+                    <input
                       type={envVar.secret ? 'password' : 'text'}
                       value={form.env[envVar.key] || ''}
                       onChange={(e) =>
@@ -615,9 +662,10 @@ function AddServerDialog({
                         })
                       }
                       placeholder={envVar.placeholder}
+                      className="w-full px-[12px] py-[10px] text-[14px] text-[#141420] bg-white border border-[#ededf3] rounded-[10px] outline-none focus:border-[#ec5b16] focus:ring-1 focus:ring-[#ec5b16]/20 transition-colors placeholder:text-[#969696]"
                     />
                     {envVar.description && (
-                      <p className="text-xs text-slate-500">{envVar.description}</p>
+                      <p className="text-[12px] text-[#969696]">{envVar.description}</p>
                     )}
                   </div>
                 ))}
@@ -626,36 +674,30 @@ function AddServerDialog({
           )}
 
           {/* Options */}
-          <div className="flex items-center gap-6 pt-2">
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={form.isEnabled}
-                onCheckedChange={(checked) => setForm({ ...form, isEnabled: checked })}
-                id="isEnabled"
+          <div className="flex items-center gap-[24px] pt-[8px]">
+            <div className="flex items-center gap-[8px]">
+              <Toggle
+                enabled={form.isEnabled}
+                onChange={(checked) => setForm({ ...form, isEnabled: checked })}
               />
-              <Label htmlFor="isEnabled" className="text-sm">
-                Enabled
-              </Label>
+              <span className="text-[13px] text-[#141420]">Enabled</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={form.autoConnect}
-                onCheckedChange={(checked) => setForm({ ...form, autoConnect: checked })}
-                id="autoConnect"
+            <div className="flex items-center gap-[8px]">
+              <Toggle
+                enabled={form.autoConnect}
+                onChange={(checked) => setForm({ ...form, autoConnect: checked })}
               />
-              <Label htmlFor="autoConnect" className="text-sm">
-                Auto-connect on startup
-              </Label>
+              <span className="text-[13px] text-[#141420]">Auto-connect on startup</span>
             </div>
           </div>
 
           {/* Setup Instructions */}
           {selectedTemplateData?.setupInstructions && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-              <Label className="text-sm font-medium text-blue-700 dark:text-blue-300">
+            <div className="p-[12px] bg-[#eff6ff] rounded-[10px] border border-[#bfdbfe]">
+              <p className="text-[13px] font-medium text-[#1d4ed8] mb-[4px]">
                 Setup Instructions
-              </Label>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 whitespace-pre-line">
+              </p>
+              <p className="text-[12px] text-[#3b82f6] whitespace-pre-line">
                 {selectedTemplateData.setupInstructions}
               </p>
               {selectedTemplateData.docsUrl && (
@@ -663,10 +705,10 @@ function AddServerDialog({
                   href={selectedTemplateData.docsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-blue-500 hover:underline flex items-center gap-1 mt-2"
+                  className="text-[12px] text-[#2563eb] hover:underline flex items-center gap-[4px] mt-[8px]"
                 >
                   View documentation
-                  <ExternalLink className="h-3 w-3" />
+                  <ExternalLink className="h-[12px] w-[12px]" />
                 </a>
               )}
             </div>
@@ -674,20 +716,27 @@ function AddServerDialog({
         </div>
         </ScrollArea>
 
-        <DialogFooter className="shrink-0 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="shrink-0 px-[24px] py-[16px] border-t border-[#ededf3] gap-[8px]">
+          <button
+            onClick={() => onOpenChange(false)}
+            className="px-[16px] py-[10px] border border-[#ededf3] rounded-[10px] text-[14px] font-medium text-[#464646] hover:bg-[#f7f7f7] transition-colors"
+          >
             Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || !form.name}>
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !form.name}
+            className="flex items-center gap-[6px] px-[16px] py-[10px] bg-[#ec5b16] hover:bg-[#d9520f] text-white text-[14px] font-medium rounded-[10px] transition-colors disabled:opacity-50"
+          >
             {isSubmitting ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <Loader2 className="h-[14px] w-[14px] animate-spin" />
             ) : editingServer ? (
-              <Check className="h-4 w-4 mr-2" />
+              <Check className="h-[14px] w-[14px]" />
             ) : (
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-[14px] w-[14px]" />
             )}
             {editingServer ? 'Save Changes' : 'Add Server'}
-          </Button>
+          </button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -703,21 +752,17 @@ export function MCPServersPanel() {
     connectionStates,
     connectedServerCount,
     toolCount,
-    customTriggerKeywords,
     loadData,
     createServer,
     updateServer,
     deleteServer,
     connect,
     disconnect,
-    updateTriggerKeywords,
   } = useMCP();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<MCPServerConfig | null>(null);
   const [connectingServers, setConnectingServers] = useState<Set<string>>(new Set());
-  const [newKeyword, setNewKeyword] = useState('');
-  const [isSavingKeywords, setIsSavingKeywords] = useState(false);
 
   const handleConnect = async (serverId: string) => {
     setConnectingServers((prev) => new Set([...prev, serverId]));
@@ -765,147 +810,70 @@ export function MCPServersPanel() {
     }
   };
 
-  const handleAddKeyword = async () => {
-    const keyword = newKeyword.trim().toLowerCase();
-    if (!keyword || customTriggerKeywords.includes(keyword)) {
-      setNewKeyword('');
-      return;
-    }
-
-    setIsSavingKeywords(true);
-    try {
-      await updateTriggerKeywords([...customTriggerKeywords, keyword]);
-      setNewKeyword('');
-    } finally {
-      setIsSavingKeywords(false);
-    }
-  };
-
-  const handleRemoveKeyword = async (keyword: string) => {
-    setIsSavingKeywords(true);
-    try {
-      await updateTriggerKeywords(customTriggerKeywords.filter(k => k !== keyword));
-    } finally {
-      setIsSavingKeywords(false);
-    }
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-[16px]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Server className="h-5 w-5" />
+          <h2 className="text-[16px] font-semibold text-[#141420] flex items-center gap-[8px]">
+            <Server className="h-[18px] w-[18px]" />
             MCP Servers
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-[13px] text-[#969696] mt-[2px]">
             Connect external tools like CRMs, docs, and calendars
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">
-            {connectedServerCount}/{servers.length} connected
-          </Badge>
+        <div className="flex items-center gap-[8px]">
+          <div className="px-[10px] py-[4px] bg-[#f7f7f7] border border-[#ededf3] rounded-[8px]">
+            <span className="text-[12px] font-medium text-[#464646]">
+              {connectedServerCount}/{servers.length} connected
+            </span>
+          </div>
           {toolCount > 0 && (
-            <Badge variant="outline">{toolCount} tools available</Badge>
+            <div className="px-[10px] py-[4px] bg-[#fff5ec] border border-[#fed7aa] rounded-[8px]">
+              <span className="text-[12px] font-medium text-[#ec5b16]">{toolCount} tools</span>
+            </div>
           )}
-          <Button variant="outline" size="icon" onClick={() => loadData()}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+          <button
+            onClick={() => loadData()}
+            className="w-[32px] h-[32px] flex items-center justify-center border border-[#ededf3] rounded-[8px] bg-white hover:bg-[#f7f7f7] transition-colors"
+          >
+            <RefreshCw className="h-[14px] w-[14px] text-[#464646]" />
+          </button>
+          <button
+            onClick={() => setDialogOpen(true)}
+            className="flex items-center gap-[6px] px-[14px] py-[8px] bg-[#ec5b16] hover:bg-[#d9520f] text-white text-[13px] font-medium rounded-[8px] transition-colors"
+          >
+            <Plus className="h-[14px] w-[14px]" />
             Add Server
-          </Button>
+          </button>
         </div>
       </div>
 
-      {/* Trigger Keywords Section */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-amber-500" />
-            <CardTitle className="text-base">Trigger Keywords</CardTitle>
-          </div>
-          <CardDescription className="text-xs">
-            Custom keywords that trigger MCP tool lookups during calls. These are added to the default keywords.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {/* Add new keyword */}
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add a keyword (e.g., 'competitor', 'demo')..."
-              value={newKeyword}
-              onChange={(e) => setNewKeyword(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddKeyword();
-                }
-              }}
-              className="flex-1"
-            />
-            <Button
-              size="sm"
-              onClick={handleAddKeyword}
-              disabled={!newKeyword.trim() || isSavingKeywords}
-            >
-              {isSavingKeywords ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-
-          {/* Keywords list */}
-          {customTriggerKeywords.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {customTriggerKeywords.map((keyword) => (
-                <Badge
-                  key={keyword}
-                  variant="secondary"
-                  className="flex items-center gap-1 pr-1"
-                >
-                  {keyword}
-                  <button
-                    onClick={() => handleRemoveKeyword(keyword)}
-                    className="ml-1 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full p-0.5"
-                    disabled={isSavingKeywords}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-              No custom keywords added. Default keywords like "documentation", "CRM", "calendar", etc. are always active.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Server List */}
       {servers.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Server className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-4" />
-            <h3 className="font-medium mb-2">No MCP Servers Configured</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-sm mb-4">
+        <div className="bg-white border border-[#ededf3] rounded-[12px] shadow-[0px_1.272px_15.267px_0px_rgba(0,0,0,0.05)]">
+          <div className="flex flex-col items-center py-[48px] px-[20px]">
+            <div className="w-[48px] h-[48px] flex items-center justify-center bg-[#f7f7f7] rounded-[12px] mb-[16px]">
+              <Server className="h-[24px] w-[24px] text-[#969696]" />
+            </div>
+            <h3 className="text-[15px] font-semibold text-[#141420] mb-[8px]">No MCP Servers Configured</h3>
+            <p className="text-[13px] text-[#969696] text-center max-w-[320px] mb-[16px]">
               Add MCP servers to connect CRMs, documentation, calendars, and other tools
               that provide contextual insights during calls.
             </p>
-            <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
+            <button
+              onClick={() => setDialogOpen(true)}
+              className="flex items-center gap-[6px] px-[16px] py-[10px] bg-[#ec5b16] hover:bg-[#d9520f] text-white text-[14px] font-medium rounded-[10px] transition-colors"
+            >
+              <Plus className="h-[14px] w-[14px]" />
               Add Your First Server
-            </Button>
-          </CardContent>
-        </Card>
+            </button>
+          </div>
+        </div>
       ) : (
         <ScrollArea className="h-[500px]">
-          <div className="space-y-3 pr-4">
+          <div className="space-y-[12px] pr-[16px]">
             {servers.map((server) => (
               <ServerCard
                 key={server.id}

@@ -10,12 +10,7 @@ goals, concerns, and success criteria for an upcoming meeting.
 Rules:
 - Generate exactly 3 questions. No more, no less.
 - Each question must have exactly 4 options.
-- Each question must have exactly 4 options as plain strings.
-- Each question must specify a "type": either "multi-choice" (user picks
-  one or more) or "single-choice" (user picks exactly one). Use your
-  judgment - if only one answer makes sense, use single-choice.
-- Include an empty "answer" field in every question (the app fills it in
-  later - for multi-choice, answers will be comma-separated).
+- All questions are multi-choice - users can select one or more options.
 - Questions should dig into: (a) what a successful outcome looks like,
   (b) what risks or blockers exist, and (c) what specific deliverables
   or decisions are expected.
@@ -25,8 +20,10 @@ Rules:
   platitudes. Derive them from the name and description provided.
 - Keep question text under 15 words. Keep each option under 12 words.
 
-You will receive the meeting name and description. Respond ONLY with the
-JSON object below - no explanation, no markdown fences, no preamble.`;
+You will receive the meeting name and description. Respond ONLY with
+valid JSON in this exact format - no explanation, no markdown fences:
+
+{"questions":[{"question":"...","options":["...","...","...","..."]}]}`;
 
 export function buildProbingQuestionsUserPrompt(name: string, description: string): string {
   return `Meeting Name: ${name}
@@ -58,14 +55,14 @@ no explanation, no markdown fences, no preamble.`;
 export function buildChecklistUserPrompt(
   name: string,
   description: string,
-  questions: Array<{ question: string; type: string; answer: string; customAnswer?: string }>
+  questions: Array<{ question: string; answer: string; customAnswer?: string }>
 ): string {
   const questionsText = questions
     .map((q) => {
       const answerPart = q.customAnswer
         ? `${q.answer}${q.answer ? ', ' : ''}Other: ${q.customAnswer}`
         : q.answer;
-      return `Q: ${q.question} (${q.type})\nAnswer: ${answerPart}`;
+      return `Q: ${q.question}\nSelected: ${answerPart}`;
     })
     .join('\n\n');
 

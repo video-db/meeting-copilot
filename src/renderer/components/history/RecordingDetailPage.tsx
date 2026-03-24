@@ -137,8 +137,8 @@ export function RecordingDetailPage({ recordingId, onBack }: RecordingDetailPage
               onToggle={() => setShowAllKeyPoints(!showAllKeyPoints)}
             />
 
-            {/* Checklist Card */}
-            <ChecklistCard checklist={recording.meetingChecklist} />
+            {/* Action Items Card (Post-Meeting Checklist) */}
+            <ActionItemsCard checklist={recording.postMeetingChecklist} />
           </div>
         </div>
 
@@ -440,20 +440,20 @@ function KeyPointsCard({ keyPoints, expanded, onToggle }: KeyPointsCardProps) {
   );
 }
 
-interface ChecklistCardProps {
+interface ActionItemsCardProps {
   checklist: string[] | null | undefined;
 }
 
-function ChecklistCard({ checklist }: ChecklistCardProps) {
+function ActionItemsCard({ checklist }: ActionItemsCardProps) {
   if (!checklist || checklist.length === 0) return null;
 
   return (
     <div className="bg-[#f7f7f7] border border-[#efefef] rounded-[16px] p-[20px] flex flex-col gap-[16px]">
       {/* Header */}
       <div className="flex items-center gap-[8px]">
-        <CheckSquare className="h-5 w-5 text-[#464646]" />
+        <CheckSquare className="h-5 w-5 text-[#ec5b16]" />
         <h3 className="text-[16px] font-medium text-black tracking-[0.08px]">
-          Follow Up
+          Action Items
         </h3>
       </div>
 
@@ -462,13 +462,13 @@ function ChecklistCard({ checklist }: ChecklistCardProps) {
         {checklist.map((item, idx) => (
           <div
             key={idx}
-            className="bg-white border border-[#efefef] rounded-[8px] px-[16px] py-[8px] flex items-center gap-[16px]"
+            className="bg-white border border-[#efefef] rounded-[8px] px-[16px] py-[12px] flex items-start gap-[12px]"
           >
             {/* Checkbox */}
-            <div className="w-4 h-4 shrink-0 rounded border border-[#969696] flex items-center justify-center">
+            <div className="w-4 h-4 shrink-0 rounded border border-[#ec5b16] flex items-center justify-center mt-[2px]">
               {/* Unchecked by default */}
             </div>
-            <span className="text-[14px] text-black leading-[24px] tracking-[0.07px]">
+            <span className="text-[14px] text-black leading-[20px] tracking-[0.07px]">
               {item}
             </span>
           </div>

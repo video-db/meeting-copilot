@@ -62,3 +62,12 @@ export {
   resetMCPAgent,
   type MCPAgentResult,
 } from './mcp-agent.service';
+
+// MCP Auth Service (OAuth for MCP servers)
+export {
+  MCPAuthService,
+  getMCPAuthService,
+  resetMCPAuthService,
+  type MCPOAuthConfig,
+  type OAuthTokens,
+} from './mcp-auth.service';

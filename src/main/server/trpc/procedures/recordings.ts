@@ -55,6 +55,10 @@ function toApiRecording(dbRecording: ReturnType<typeof getRecordingById>) {
     (dbRecording as any).meetingChecklist,
     z.array(z.string())
   );
+  const postMeetingChecklist = safeJsonParse(
+    (dbRecording as any).postMeetingChecklist,
+    z.array(z.string())
+  );
 
   return {
     id: dbRecording.id,
@@ -78,6 +82,8 @@ function toApiRecording(dbRecording: ReturnType<typeof getRecordingById>) {
     meetingDescription: (dbRecording as any).meetingDescription || null,
     probingQuestions: probingQuestions || null,
     meetingChecklist: meetingChecklist || null,
+    // Post-meeting analysis
+    postMeetingChecklist: postMeetingChecklist || null,
   };
 }
 

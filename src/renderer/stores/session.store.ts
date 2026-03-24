@@ -16,17 +16,21 @@ interface SessionState {
   startTime: number | null;
   elapsedTime: number;
   streams: StreamState;
+  isPaused: boolean;
   error: string | null;
+  screenWsConnectionId: string | null; // For visual indexing
 
   // Actions
   setStatus: (status: SessionStatus) => void;
-  startSession: (sessionId: string, sessionToken: string, expiresAt: number) => void;
+  startSession: (sessionId: string, sessionToken: string, expiresAt: number, screenWsConnectionId?: string) => void;
   stopSession: () => void;
   setSessionToken: (token: string, expiresAt: number) => void;
   setElapsedTime: (time: number) => void;
   toggleStream: (stream: keyof StreamState) => void;
   setStreams: (streams: Partial<StreamState>) => void;
+  setPaused: (paused: boolean) => void;
   setError: (error: string | null) => void;
+  setScreenWsConnectionId: (id: string | null) => void;
   reset: () => void;
   isTokenExpired: () => boolean;
 }
@@ -45,11 +49,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   startTime: null,
   elapsedTime: 0,
   streams: initialStreams,
+  isPaused: false,
   error: null,
+  screenWsConnectionId: null,
 
   setStatus: (status) => set({ status }),
 
-  startSession: (sessionId, sessionToken, expiresAt) => {
+  startSession: (sessionId, sessionToken, expiresAt, screenWsConnectionId) => {
     set({
       status: 'recording',
       sessionId,
@@ -57,7 +63,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       tokenExpiresAt: expiresAt,
       startTime: Date.now(),
       elapsedTime: 0,
+      isPaused: false,
       error: null,
+      screenWsConnectionId: screenWsConnectionId || null,
     });
   },
 
@@ -67,6 +75,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       sessionId: null,
       startTime: null,
       elapsedTime: 0,
+      isPaused: false,
+      screenWsConnectionId: null,
     });
   },
 
@@ -98,7 +108,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     });
   },
 
+  setPaused: (paused) => set({ isPaused: paused }),
+
   setError: (error) => set({ error }),
+
+  setScreenWsConnectionId: (id) => set({ screenWsConnectionId: id }),
 
   reset: () => {
     set({
@@ -107,6 +121,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       startTime: null,
       elapsedTime: 0,
       streams: initialStreams,
+      isPaused: false,
       error: null,
     });
   },

@@ -54,7 +54,7 @@ export function SessionControls() {
                 <Button
                   size="lg"
                   className="w-32 h-12"
-                  onClick={startRecording}
+                  onClick={() => startRecording()}
                   disabled={isStarting || isStopping}
                 >
                   <Circle className="mr-2 h-4 w-4 fill-current" />

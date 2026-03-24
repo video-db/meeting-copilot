@@ -57,7 +57,6 @@ export const MetricsSnapshotSchema = z.object({
 // Meeting Setup schemas
 export const ProbingQuestionSchema = z.object({
   question: z.string(),
-  type: z.enum(['single-choice', 'multi-choice']),
   options: z.array(z.string()),
   answer: z.string(),
   customAnswer: z.string().optional(),
@@ -92,6 +91,8 @@ export const RecordingSchema = z.object({
   meetingDescription: z.string().nullable().optional(),
   probingQuestions: z.array(ProbingQuestionSchema).nullable().optional(),
   meetingChecklist: z.array(z.string()).nullable().optional(),
+  // Post-meeting analysis
+  postMeetingChecklist: z.array(z.string()).nullable().optional(),
 });
 
 export const CreateRecordingInputSchema = z.object({

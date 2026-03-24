@@ -46,10 +46,9 @@ export class MeetingSetupService {
       };
     }
 
-    // Ensure questions have the correct structure
+    // Map response to ProbingQuestion format
     const questions: ProbingQuestion[] = response.data.questions.map((q) => ({
       question: q.question,
-      type: q.type,
       options: q.options,
       answer: '',
       customAnswer: undefined,

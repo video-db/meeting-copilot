@@ -9,7 +9,6 @@ import { getMeetingSetupService } from '../../../services/meeting-setup.service'
 
 const probingQuestionSchema = z.object({
   question: z.string(),
-  type: z.enum(['single-choice', 'multi-choice']),
   options: z.array(z.string()),
   answer: z.string(),
   customAnswer: z.string().optional(),

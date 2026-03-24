@@ -73,6 +73,32 @@ declare module 'videodb' {
     | 'system_audio'
     | 'cameras';
 
+  export interface IndexVisualsConfig {
+    batchConfig?: {
+      type: 'time';
+      value: number;
+      frameCount?: number;
+    };
+    prompt?: string;
+    modelName?: string;
+    modelConfig?: Record<string, unknown>;
+    name?: string;
+    socketId?: string;
+  }
+
+  export class RTStreamSceneIndex {
+    rtstreamIndexId: string;
+    rtstreamId: string;
+    extractionType?: string;
+    extractionConfig?: Record<string, unknown>;
+    prompt?: string;
+    name?: string;
+    status?: string;
+    start(): Promise<void>;
+    stop(): Promise<void>;
+    getScenes(start?: number, end?: number, page?: number, pageSize?: number): Promise<{ scenes: unknown[]; nextPage: boolean } | null>;
+  }
+
   export class RTStream {
     id: string;
     name?: string;
@@ -89,6 +115,8 @@ declare module 'videodb' {
       since?: number;
       engine?: string;
     }): Promise<Record<string, unknown>>;
+    indexVisuals(config?: Partial<IndexVisualsConfig>): Promise<RTStreamSceneIndex | null>;
+    listSceneIndexes(): Promise<RTStreamSceneIndex[]>;
   }
 
   export class CaptureSessionFull {
