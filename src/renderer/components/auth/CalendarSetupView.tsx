@@ -150,7 +150,7 @@ export function CalendarSetupView({ onConnected, onSkip }: CalendarSetupViewProp
         </div>
 
         {/* Features card */}
-        <div className="w-full bg-white border border-[#e0e0e8] rounded-[12px] shadow-[0px_1px_4px_0px_rgba(0,0,0,0.04)] px-[21px] py-[17px] mb-[32px]">
+        <div className="w-full bg-white border border-[#e0e0e8] rounded-[12px] shadow-[0px_1px_4px_0px_rgba(0,0,0,0.04)] px-[21px] py-[17px] mb-[16px]">
           <div className="flex flex-col gap-[12px]">
             {features.map((feature, index) => (
               <div key={index} className="flex items-center gap-[10px]">
@@ -159,6 +159,14 @@ export function CalendarSetupView({ onConnected, onSkip }: CalendarSetupViewProp
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Notifications tip */}
+        <div className="w-full flex items-start gap-[10px] px-[14px] py-[12px] bg-[#f8f8fa] rounded-[12px] border border-[#efefef] mb-[32px]">
+          <p className="text-[13px] text-[#666666] leading-[18px]">
+            <span className="font-medium">Tip:</span> Make sure notifications are enabled for Notter in{' '}
+            <span className="font-medium">System Settings → Notifications</span> to receive meeting reminders.
+          </p>
         </div>
 
         {/* Error message */}
