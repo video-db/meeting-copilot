@@ -54,17 +54,17 @@ export function getNodeModulesBinaryDir(moduleName: string, binaryDir: string): 
 }
 
 /**
- * Get the videodb recorder binary path
+ * Get the videodb capture binary path (inside VideoDBCapture.app bundle)
  */
 export function getVideoDBRecorderPath(): string {
-  return getNodeModulesBinaryPath('videodb', 'bin/recorder');
+  return getNodeModulesBinaryPath('videodb', 'bin/VideoDBCapture.app/Contents/MacOS/capture');
 }
 
 /**
- * Get the videodb recorder binary directory (contains recorder and librecorder.dylib)
+ * Get the videodb recorder binary directory (contains capture and librecorder.dylib)
  */
 export function getVideoDBRecorderDir(): string {
-  return getNodeModulesBinaryDir('videodb', 'bin');
+  return getNodeModulesBinaryDir('videodb', 'bin/VideoDBCapture.app/Contents/MacOS');
 }
 
 /**
@@ -100,7 +100,7 @@ export function verifyVideoDBRecorder(): { exists: boolean; path: string; error?
   const dylibPath = path.join(binDir, 'librecorder.dylib');
 
   if (!fs.existsSync(recorderPath)) {
-    return { exists: false, path: recorderPath, error: `Recorder binary not found at ${recorderPath}` };
+    return { exists: false, path: recorderPath, error: `Capture binary not found at ${recorderPath}` };
   }
 
   if (process.platform === 'darwin' && !fs.existsSync(dylibPath)) {
