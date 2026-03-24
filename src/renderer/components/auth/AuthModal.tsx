@@ -57,7 +57,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Welcome to Meeting Copilot</DialogTitle>
+          <DialogTitle>Welcome to Notter</DialogTitle>
           <DialogDescription>
             Enter your VideoDB API key to get started. You can get one at{' '}
             <a

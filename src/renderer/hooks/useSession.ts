@@ -59,6 +59,14 @@ export function useSession() {
       return;
     }
 
+    const accessToken = configStore.accessToken;
+    const apiUrl = configStore.apiUrl;
+
+    if (!accessToken) {
+      sessionStore.setError('Not authenticated. Please log in first.');
+      return;
+    }
+
     sessionStore.setStatus('starting');
     transcriptionStore.clear();
     useVisualIndexStore.getState().clear();
@@ -77,13 +85,6 @@ export function useSession() {
 
       if (!sessionToken) {
         throw new Error('Failed to get session token');
-      }
-
-      const accessToken = configStore.accessToken;
-      const apiUrl = configStore.apiUrl;
-
-      if (!accessToken) {
-        throw new Error('Not authenticated');
       }
 
       const captureSession = await createSessionMutation.mutateAsync({});
@@ -152,7 +153,14 @@ export function useSession() {
 
       sessionStore.startSession(captureSession.sessionId, sessionToken!, tokenExpiresAt!, result.screenWsConnectionId);
     } catch (error) {
-      sessionStore.setError(error instanceof Error ? error.message : 'Failed to start recording');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start recording';
+
+      if (errorMessage.includes('logged in') || errorMessage.includes('UNAUTHORIZED')) {
+        configStore.clearAuth();
+        sessionStore.setError('Session expired. Please log in again.');
+      } else {
+        sessionStore.setError(errorMessage);
+      }
       sessionStore.setStatus('idle');
     }
   }, [

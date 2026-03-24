@@ -131,7 +131,7 @@ export function CalendarSetupView({ onConnected, onSkip }: CalendarSetupViewProp
 
       {/* Step indicators */}
       <div className="absolute top-[32px]">
-        <StepIndicators currentStep={2} />
+        <StepIndicators currentStep={2} totalSteps={4} />
       </div>
 
       {/* Main content */}
@@ -144,7 +144,7 @@ export function CalendarSetupView({ onConnected, onSkip }: CalendarSetupViewProp
               Connect your calendar
             </h1>
             <p className="text-[14px] font-normal text-[#464646] text-center leading-[22.4px]">
-              Meeting Copilot uses your Google Calendar to detect upcoming meetings and ask if you'd like to record them.
+              Notter uses your Google Calendar to detect upcoming meetings and ask if you'd like to record them.
             </p>
           </div>
         </div>

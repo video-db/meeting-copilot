@@ -18,7 +18,7 @@ export function getDbPath(): string {
     fs.mkdirSync(dbDir, { recursive: true });
   }
 
-  return path.join(dbDir, 'meeting-copilot.db');
+  return path.join(dbDir, 'notter.db');
 }
 
 export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {

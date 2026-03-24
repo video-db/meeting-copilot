@@ -240,7 +240,7 @@ export async function startAuthFlow(): Promise<GoogleTokens> {
           <html>
             <body style="font-family: system-ui; padding: 40px; text-align: center;">
               <h2>Authorization Successful!</h2>
-              <p>You can close this window and return to Meeting Copilot.</p>
+              <p>You can close this window and return to Notter.</p>
               <script>setTimeout(() => window.close(), 2000);</script>
             </body>
           </html>

@@ -58,7 +58,7 @@ import {
 import { createMCPToolCall, updateMCPToolCall } from '../../db';
 import type { MCPDisplayResult, MCPIntentDetection } from '../../../shared/types/mcp.types';
 
-const log = logger.child({ module: 'meeting-copilot' });
+const log = logger.child({ module: 'notter' });
 
 // Types
 

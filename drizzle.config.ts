@@ -5,6 +5,6 @@ export default defineConfig({
   out: './drizzle',
   dialect: 'sqlite',
   dbCredentials: {
-    url: './data/meeting-copilot.db',
+    url: './data/notter.db',
   },
 });

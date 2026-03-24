@@ -27,7 +27,7 @@ export function createServer(port: number) {
   app.get('/api', (c) => {
     return c.json({
       status: 'ok',
-      message: 'Meeting Copilot Server Running',
+      message: 'Notter Server Running',
     });
   });
 

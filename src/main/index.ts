@@ -36,7 +36,7 @@ import { createSessionRecoveryService } from './services/session-recovery.servic
 
 let mainWindow: BrowserWindow | null = null;
 const isDev = !app.isPackaged;
-const PROTOCOL_NAME = 'meetingcopilot';
+const PROTOCOL_NAME = 'notter';
 
 // Track if app is quitting (for hide-to-tray behavior)
 let isAppQuitting = false;
@@ -51,7 +51,7 @@ export function getAppQuitting(): boolean {
 
 /**
  * Register custom protocol handler for OAuth callbacks
- * This allows OAuth providers to redirect back to the app via meetingcopilot://oauth/callback
+ * This allows OAuth providers to redirect back to the app via notter://oauth/callback
  */
 function setupProtocolHandler(): void {
   // Register as default protocol handler (only works in packaged app)
@@ -128,7 +128,7 @@ async function createWindow(): Promise<void> {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: 'Meeting Copilot',
+    title: 'Notter',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {

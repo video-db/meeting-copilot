@@ -39,7 +39,7 @@ export function applyVideoDBPatches(): void {
       .replace('app.asar', 'app.asar.unpacked');
 
     // Destination: writable userData directory
-    // e.g., ~/Library/Application Support/meeting-copilot/bin
+    // e.g., ~/Library/Application Support/notter/bin
     const destDir = path.join(app.getPath('userData'), 'bin');
 
     logger.info({ srcDir, destDir }, 'Setting up writable binaries');
