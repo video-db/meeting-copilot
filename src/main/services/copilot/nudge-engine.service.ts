@@ -49,24 +49,24 @@ const NUDGE_TEMPLATES: Record<NudgeType, Array<{
 }>> = {
   monologue: [
     {
-      message: "You've been speaking for a while — try asking a question",
+      message: "You've been speaking for a while — a question could help engage them",
       severity: 'medium',
       actionLabel: 'Suggest question',
       actionType: 'ask_question',
     },
     {
-      message: 'Consider pausing to let the other person respond',
+      message: 'Extended speaking stretch detected — consider a pause point',
       severity: 'low',
       actionType: 'pause',
     },
   ],
   talk_ratio: [
     {
-      message: 'Talk ratio is high — let the other person speak more',
+      message: 'Talk ratio is leaning towards you — balance with more listening',
       severity: 'low',
     },
     {
-      message: 'You\'re doing most of the talking — try asking open-ended questions',
+      message: 'You\'ve been driving most of the conversation so far',
       severity: 'medium',
       actionType: 'ask_question',
     },
@@ -86,14 +86,14 @@ const NUDGE_TEMPLATES: Record<NudgeType, Array<{
   ],
   questions: [
     {
-      message: 'You haven\'t asked many questions — discovery is key',
+      message: 'Few questions asked so far — discovery helps uncover needs',
       severity: 'low',
       actionType: 'ask_question',
     },
   ],
   pace: [
     {
-      message: 'You\'re speaking quite fast — try slowing down',
+      message: 'Speaking pace is on the faster side — slowing down can help clarity',
       severity: 'low',
     },
   ],
