@@ -32,11 +32,13 @@ export function applyVideoDBPatches(): void {
 
   try {
     // Source: binaries from the unpacked asar
-    // In packaged app: /path/to/App.app/Contents/Resources/app.asar.unpacked/node_modules/videodb/bin
+    // v0.2.x stores binaries inside VideoDBCapture.app/Contents/MacOS/
     // Use app.getAppPath() for reliable root path (works regardless of __dirname depth)
-    const srcDir = path
+    const binBase = path
       .join(app.getAppPath(), 'node_modules', 'videodb', 'bin')
       .replace('app.asar', 'app.asar.unpacked');
+
+    const srcDir = path.join(binBase, 'VideoDBCapture.app', 'Contents', 'MacOS');
 
     // Destination: writable userData directory
     // e.g., ~/Library/Application Support/call-md/bin
@@ -74,14 +76,14 @@ export function applyVideoDBPatches(): void {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const cp = require('child_process');
     const origSpawn = cp.spawn;
-    const binName = process.platform === 'win32' ? 'recorder.exe' : 'recorder';
+    const binName = process.platform === 'win32' ? 'capture.exe' : 'capture';
     const writableBin = path.join(destDir, binName);
 
     cp.spawn = function (cmd: string, args: string[], opts: Record<string, unknown>) {
-      // Intercept calls to the recorder binary
+      // Intercept calls to the capture binary
       if (
         typeof cmd === 'string' &&
-        cmd.includes('recorder') &&
+        cmd.includes('capture') &&
         !cmd.startsWith(destDir) &&
         fs.existsSync(writableBin)
       ) {

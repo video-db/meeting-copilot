@@ -117,48 +117,88 @@ const config = {
       const resourcesPath = path.join(appOutDir, `${appName}.app`, 'Contents', 'Resources');
       const unpackedPath = path.join(resourcesPath, 'app.asar.unpacked');
 
-      const videodbBinPath = path.join(unpackedPath, 'node_modules', 'videodb', 'bin');
+      const videodbAppBundle = path.join(
+        unpackedPath, 'node_modules', 'videodb', 'bin', 'VideoDBCapture.app'
+      );
+      const macosDir = path.join(videodbAppBundle, 'Contents', 'MacOS');
+      const infoPlistPath = path.join(videodbAppBundle, 'Contents', 'Info.plist');
 
-      console.log('Checking videodb binaries at:', videodbBinPath);
+      console.log('Checking videodb binaries at:', macosDir);
 
-      const recorderPath = path.join(videodbBinPath, 'recorder');
-      const librecorderPath = path.join(videodbBinPath, 'librecorder.dylib');
+      const recorderPath = path.join(macosDir, 'capture');
+      const librecorderPath = path.join(macosDir, 'librecorder.dylib');
 
       if (fs.existsSync(recorderPath)) {
-        console.log('Found recorder binary');
+        console.log('Found capture binary');
 
         try {
           const fileOutput = execSync(`file "${recorderPath}"`).toString();
-          console.log('Recorder binary type:', fileOutput.trim());
+          console.log('Capture binary type:', fileOutput.trim());
 
           const targetArch = context.arch;
           const isArm64 = targetArch === 'arm64' || targetArch === 3; // arch 3 = arm64 in electron-builder
           const isX64 = targetArch === 'x64' || targetArch === 1; // arch 1 = x64 in electron-builder
 
           if (isArm64 && fileOutput.includes('x86_64') && !fileOutput.includes('arm64')) {
-            console.warn('WARNING: Recorder binary is x86_64 but building for arm64!');
-            console.warn('The binary will run under Rosetta 2, which may cause issues.');
-            console.warn('Consider requesting arm64 binaries from the videodb package maintainers.');
+            console.warn('WARNING: Capture binary is x86_64 but building for arm64!');
           } else if (isX64 && fileOutput.includes('arm64') && !fileOutput.includes('x86_64')) {
-            console.warn('WARNING: Recorder binary is arm64 but building for x64!');
-            console.warn('This may cause compatibility issues.');
+            console.warn('WARNING: Capture binary is arm64 but building for x64!');
           }
 
           fs.chmodSync(recorderPath, 0o755);
-          console.log('Set recorder binary permissions to 755');
+          console.log('Set capture binary permissions to 755');
         } catch (error) {
-          console.error('Error checking recorder binary:', error.message);
+          console.error('Error checking capture binary:', error.message);
         }
       } else {
-        console.error('ERROR: Recorder binary not found at', recorderPath);
+        console.error('ERROR: Capture binary not found at', recorderPath);
       }
 
       if (fs.existsSync(librecorderPath)) {
-        console.log('Found librecorder.dylib');
         fs.chmodSync(librecorderPath, 0o644);
         console.log('Set librecorder.dylib permissions to 644');
       } else {
         console.error('ERROR: librecorder.dylib not found at', librecorderPath);
+      }
+
+      // Patch Info.plist with mic/camera usage descriptions
+      if (fs.existsSync(infoPlistPath)) {
+        try {
+          let plistContent = fs.readFileSync(infoPlistPath, 'utf8');
+          if (!plistContent.includes('NSMicrophoneUsageDescription')) {
+            plistContent = plistContent.replace(
+              '</dict>',
+              '    <key>NSMicrophoneUsageDescription</key>\n' +
+              '    <string>VideoDB Capture needs microphone access to record audio.</string>\n' +
+              '    <key>NSCameraUsageDescription</key>\n' +
+              '    <string>VideoDB Capture needs camera access to record video.</string>\n' +
+              '</dict>'
+            );
+            fs.writeFileSync(infoPlistPath, plistContent);
+            console.log('Patched VideoDBCapture Info.plist with mic/camera usage descriptions');
+          }
+        } catch (err) {
+          console.warn('Failed to patch Info.plist:', err.message);
+        }
+      }
+
+      // Re-codesign the .app bundle inside-out so macOS TCC recognises it
+      // after electron-builder packing (hardened runtime invalidates signatures)
+      try {
+        if (fs.existsSync(librecorderPath)) {
+          execSync(`codesign --force --sign - "${librecorderPath}"`);
+          console.log('Codesigned librecorder.dylib');
+        }
+        if (fs.existsSync(recorderPath)) {
+          execSync(`codesign --force --sign - "${recorderPath}"`);
+          console.log('Codesigned capture binary');
+        }
+        if (fs.existsSync(videodbAppBundle)) {
+          execSync(`codesign --force --sign - "${videodbAppBundle}"`);
+          console.log('Codesigned VideoDBCapture.app bundle');
+        }
+      } catch (error) {
+        console.warn('Codesign failed (mic/screen permissions may not work):', error.message);
       }
 
       const betterSqlitePath = path.join(
@@ -171,6 +211,12 @@ const config = {
       );
       if (fs.existsSync(betterSqlitePath)) {
         console.log('Found better-sqlite3 native module');
+        try {
+          execSync(`codesign --force --sign - "${betterSqlitePath}"`);
+          console.log('Codesigned better_sqlite3.node');
+        } catch (error) {
+          console.warn('Failed to codesign better_sqlite3.node:', error.message);
+        }
       } else {
         console.warn('WARNING: better-sqlite3 native module not found');
       }
