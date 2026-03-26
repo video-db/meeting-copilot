@@ -582,7 +582,7 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
         </div>
 
         {/* App Permissions Section */}
-        <div className="bg-[#f7f7f7] border border-[#efefef] rounded-[12px] p-[16px] flex flex-col gap-[20px]">
+        <div className="bg-[#f7f7f7] border border-[#efefef] rounded-[16px] p-[16px] flex flex-col gap-[20px]">
           <h2 className="text-[18px] font-semibold text-[#141420] tracking-[-0.17px] leading-[25.5px]">
             App permissions
           </h2>
@@ -626,7 +626,7 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
         </div>
 
         {/* Recent Meetings Section */}
-        <div className="flex flex-col gap-[20px] items-center">
+        <div className="flex flex-col gap-[14px]">
           {/* Header */}
           <div className="flex items-center justify-between w-full">
             <h2 className="text-[18px] font-semibold text-[#141420] tracking-[-0.17px] leading-[25.5px]">
@@ -636,11 +636,11 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
 
           {/* Content */}
           {recordingsLoading ? (
-            <div className="flex items-center justify-center py-[40px] bg-[#f7f7f7] border border-[rgba(0,0,0,0.1)] rounded-[16px]">
+            <div className="flex items-center justify-center py-[40px] bg-[#f7f7f7] border border-[#efefef] rounded-[16px] w-full">
               <Loader2 className="w-6 h-6 animate-spin text-[#969696]" />
             </div>
           ) : recentRecordings.length === 0 ? (
-            <div className="flex items-center justify-center py-[40px] bg-[#f7f7f7] border border-[rgba(0,0,0,0.1)] rounded-[16px]">
+            <div className="flex items-center justify-center py-[40px] bg-[#f7f7f7] border border-[#efefef] rounded-[16px] w-full">
               <div className="flex flex-col items-center gap-[10px] px-[8px] py-[14px]">
                 <EmptyRecordingsIcon />
                 <p className="text-[14px] text-[#141420] leading-[19.5px]">No recordings yet</p>
@@ -755,10 +755,10 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
             <span className="flex-1 text-[18px] font-medium text-black">MCPs</span>
             <button
               onClick={() => onNavigateToSettings('mcpServers')}
-              className="flex items-center gap-[4px] text-[14px] font-medium text-[#ec5b16] hover:opacity-80"
+              className="flex items-center gap-[4px] text-[14px] font-semibold text-[#ec5b16] hover:opacity-80"
             >
-              <span className="text-[14px]">+</span>
-              Add
+              <span>+</span>
+              <span>Add</span>
             </button>
           </div>
 
@@ -803,10 +803,10 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
             <span className="flex-1 text-[18px] font-medium text-black">Workflows</span>
             <button
               onClick={() => onNavigateToSettings('workflows')}
-              className="flex items-center gap-[4px] text-[14px] font-medium text-[#ec5b16] hover:opacity-80"
+              className="flex items-center gap-[4px] text-[14px] font-semibold text-[#ec5b16] hover:opacity-80"
             >
-              <span className="text-[14px]">+</span>
-              Add
+              <span>+</span>
+              <span>Add</span>
             </button>
           </div>
 
