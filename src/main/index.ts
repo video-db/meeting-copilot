@@ -1,3 +1,7 @@
+import fixPath from 'fix-path';
+
+fixPath();
+
 import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
 import fs from 'fs';

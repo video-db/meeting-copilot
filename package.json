@@ -43,6 +43,7 @@
     "@videodb/recorder": "^0.2.4",
     "better-sqlite3": "^12.6.2",
     "drizzle-orm": "^0.44.1",
+    "fix-path": "^5.0.0",
     "hono": "^4.7.5",
     "openai": "^6.19.0",
     "pino": "^9.6.0",

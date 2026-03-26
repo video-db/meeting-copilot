@@ -7,7 +7,7 @@
 
 import { EventEmitter } from 'events';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { logger } from '../../lib/logger';
@@ -130,18 +130,18 @@ export class MCPClientService extends EventEmitter {
       throw new Error('Command is required for stdio transport');
     }
 
-    // Decrypt environment variables if present
-    let env: Record<string, string> = { ...process.env } as Record<string, string>;
+    const env: Record<string, string> = { ...getDefaultEnvironment() };
+
     if (this.config.env) {
       try {
-        const decryptedEnv = typeof this.config.env === 'string'
+        const configEnv = typeof this.config.env === 'string'
           ? decryptCredentials(this.config.env)
           : this.config.env;
-        env = { ...env, ...decryptedEnv };
+        Object.assign(env, configEnv);
       } catch (error) {
         log.warn({ serverId: this.config.id }, 'Failed to decrypt env, using as-is');
         if (typeof this.config.env === 'object') {
-          env = { ...env, ...this.config.env };
+          Object.assign(env, this.config.env);
         }
       }
     }
