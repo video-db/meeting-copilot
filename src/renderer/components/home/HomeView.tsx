@@ -9,8 +9,8 @@
  * - Connected MCP servers
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, Clock, Loader2, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Loader2 } from 'lucide-react';
 import { trpc } from '../../api/trpc';
 import { useMCP } from '../../hooks/useMCP';
 import { useSessionStore } from '../../stores/session.store';
@@ -18,6 +18,43 @@ import { RecordingCard } from '../history/RecordingCard';
 import { RecordingDetailPage } from '../history/RecordingDetailPage';
 import type { UpcomingMeeting } from '../../../shared/types/calendar.types';
 import type { MCPServerConfig } from '../../../preload/index';
+
+// Hook for auto-hiding scrollbar
+function useAutoHideScrollbar(timeout = 1500) {
+  const [isScrolling, setIsScrolling] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleScroll = useCallback(() => {
+    setIsScrolling(true);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      setIsScrolling(false);
+    }, timeout);
+  }, [timeout]);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  return { isScrolling, handleScroll };
+}
+
+// Scrollbar styles
+const scrollbarBaseStyles = `
+  [&::-webkit-scrollbar]:w-[6px]
+  [&::-webkit-scrollbar-track]:bg-transparent
+  [&::-webkit-scrollbar-thumb]:rounded-full
+  [&::-webkit-scrollbar-thumb]:transition-colors
+  [&::-webkit-scrollbar-thumb]:duration-300
+`;
+const scrollbarVisibleStyles = '[&::-webkit-scrollbar-thumb]:bg-[#c1c1c1]';
+const scrollbarHiddenStyles = '[&::-webkit-scrollbar-thumb]:bg-transparent';
 
 // Icons
 function SpeakerIcon({ enabled }: { enabled: boolean }) {
@@ -264,7 +301,7 @@ function PermissionItem({
   isFirst?: boolean;
   isLast?: boolean;
 }) {
-  const bgColor = enabled ? 'bg-[#fff5ec]' : 'bg-[#f7f7f7]';
+  const bgColor = 'bg-white';
   const borderRadius = isFirst
     ? 'rounded-t-[10px]'
     : isLast
@@ -407,6 +444,10 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
   const [workflows, setWorkflows] = useState<WorkflowData[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
+  // Auto-hide scrollbars
+  const leftScrollbar = useAutoHideScrollbar();
+  const rightScrollbar = useAutoHideScrollbar();
+
   // Session state for stream toggles
   const sessionStore = useSessionStore();
   const { streams, setStreams } = sessionStore;
@@ -483,21 +524,6 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
     return () => unsubscribe();
   }, []);
 
-  // Load workflows
-  useEffect(() => {
-    const loadWorkflows = async () => {
-      try {
-        const result = await window.electronAPI.workflows.getAll();
-        if (result.success && result.workflows) {
-          setWorkflows(result.workflows);
-        }
-      } catch {
-        // Ignore errors
-      }
-    };
-    loadWorkflows();
-  }, []);
-
   // Check notification permission
   useEffect(() => {
     const checkNotifications = async () => {
@@ -524,6 +550,21 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
       }
     }, 1000);
   };
+
+  // Load workflows
+  useEffect(() => {
+    const loadWorkflows = async () => {
+      try {
+        const result = await window.electronAPI.workflows.getAll();
+        if (result.success && result.workflows) {
+          setWorkflows(result.workflows);
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+    loadWorkflows();
+  }, []);
 
   const handleConnectCalendar = async () => {
     try {
@@ -563,65 +604,70 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
   return (
     <div className="flex gap-[24px] h-full p-[24px] bg-white overflow-hidden">
       {/* Left Column */}
-      <div className="flex-1 flex flex-col gap-[40px] overflow-y-auto">
-        {/* Dashboard Header with Start Recording button */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-[22px] font-semibold text-black tracking-[0.11px]">
-            Dashboard
-          </h1>
-          <button
-            onClick={onStartRecording}
-            disabled={!streams.systemAudio && !streams.microphone}
-            className="flex items-center gap-[4px] bg-[#ff4000] hover:bg-[#e63900] disabled:opacity-50 disabled:cursor-not-allowed px-[20px] py-[12px] rounded-[12px] shadow-[0px_1.272px_15.267px_0px_rgba(0,0,0,0.05)] transition-colors"
-          >
-            <RecordingIcon />
-            <span className="text-[14px] font-semibold text-white tracking-[-0.28px]">
-              Start Recording
-            </span>
-          </button>
-        </div>
+      <div
+        className={`flex-1 flex flex-col gap-[40px] overflow-y-auto ${scrollbarBaseStyles} ${leftScrollbar.isScrolling ? scrollbarVisibleStyles : scrollbarHiddenStyles}`}
+        onScroll={leftScrollbar.handleScroll}
+      >
+        <div className="flex flex-col gap-[30px] w-full">
+          {/* Dashboard Header with Start Recording button */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-[22px] font-semibold text-black tracking-[0.11px]">
+              Dashboard
+            </h1>
+            <button
+              onClick={onStartRecording}
+              disabled={!streams.systemAudio && !streams.microphone}
+              className="flex items-center gap-[4px] bg-[#ff4000] hover:bg-[#e63900] disabled:opacity-50 disabled:cursor-not-allowed px-[20px] py-[12px] rounded-[12px] shadow-[0px_1.272px_15.267px_0px_rgba(0,0,0,0.05)] transition-colors"
+            >
+              <RecordingIcon />
+              <span className="text-[14px] font-semibold text-white tracking-[-0.28px]">
+                Start Recording
+              </span>
+            </button>
+          </div>
 
-        {/* App Permissions Section */}
-        <div className="bg-[#f7f7f7] border border-[#efefef] rounded-[16px] p-[16px] flex flex-col gap-[20px]">
-          <h2 className="text-[18px] font-semibold text-[#141420] tracking-[-0.17px] leading-[25.5px]">
-            App permissions
-          </h2>
+          {/* App Permissions Section */}
+          <div className="bg-[#f7f7f7] border border-[#efefef] rounded-[12px] p-[16px] flex flex-col gap-[20px]">
+            <h2 className="text-[18px] font-semibold text-[#141420] tracking-[-0.17px] leading-[25.5px]">
+              App permissions
+            </h2>
 
-          {/* Permission Toggles */}
-          <div className="flex flex-col rounded-[12px] overflow-hidden">
-            <PermissionItem
-              icon={<SpeakerIcon enabled={streams.systemAudio} />}
-              title="System audio"
-              description="Capture audio from meeting apps and browser tabs"
-              enabled={streams.systemAudio}
-              onChange={(enabled) => setStreams({ systemAudio: enabled })}
-              isFirst
-            />
-            <div className="h-[1px] bg-[#ededf3]" />
-            <PermissionItem
-              icon={<MicIcon enabled={streams.microphone} />}
-              title="Microphone"
-              description="Record your voice during meetings and calls"
-              enabled={streams.microphone}
-              onChange={(enabled) => setStreams({ microphone: enabled })}
-            />
-            <div className="h-[1px] bg-[#ededf3]" />
-            <PermissionItem
-              icon={<ScreenIcon enabled={streams.screen} />}
-              title="Screen capture"
-              description="Record your screen to capture visual context"
-              enabled={streams.screen}
-              onChange={(enabled) => setStreams({ screen: enabled })}
-            />
-            <div className="h-[1px] bg-[#ededf3]" />
-            <PermissionItem
-              icon={<NotificationIcon enabled={notificationsEnabled} />}
-              title="App notification"
-              description="Allow call.md to send notification and reminders"
-              enabled={notificationsEnabled}
-              onChange={handleToggleNotifications}
-              isLast
-            />
+            {/* Permission Toggles */}
+            <div className="flex flex-col rounded-[12px] overflow-hidden border border-[#efefef]">
+              <PermissionItem
+                icon={<SpeakerIcon enabled={streams.systemAudio} />}
+                title="System audio"
+                description="Capture audio from meeting apps and browser tabs"
+                enabled={streams.systemAudio}
+                onChange={(enabled) => setStreams({ systemAudio: enabled })}
+                isFirst
+              />
+              <div className="h-[1px] bg-[#ededf3]" />
+              <PermissionItem
+                icon={<MicIcon enabled={streams.microphone} />}
+                title="Microphone"
+                description="Record your voice during meetings and calls"
+                enabled={streams.microphone}
+                onChange={(enabled) => setStreams({ microphone: enabled })}
+              />
+              <div className="h-[1px] bg-[#ededf3]" />
+              <PermissionItem
+                icon={<ScreenIcon enabled={streams.screen} />}
+                title="Screen capture"
+                description="Record your screen to capture visual context"
+                enabled={streams.screen}
+                onChange={(enabled) => setStreams({ screen: enabled })}
+              />
+              <div className="h-[1px] bg-[#ededf3]" />
+              <PermissionItem
+                icon={<NotificationIcon enabled={notificationsEnabled} />}
+                title="App notification"
+                description="Allow call.md to send notification and reminders"
+                enabled={notificationsEnabled}
+                onChange={handleToggleNotifications}
+                isLast
+              />
+            </div>
           </div>
         </div>
 
@@ -674,7 +720,10 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
       </div>
 
       {/* Right Panel */}
-      <div className="w-[460px] shrink-0 bg-[#f7f7f7] border border-[#efefef] rounded-[16px] p-[16px] flex flex-col gap-[16px] overflow-y-auto">
+      <div
+        className={`w-[460px] shrink-0 bg-[#f7f7f7] border border-[#efefef] rounded-[16px] p-[16px] flex flex-col gap-[16px] overflow-y-auto ${scrollbarBaseStyles} ${rightScrollbar.isScrolling ? scrollbarVisibleStyles : scrollbarHiddenStyles}`}
+        onScroll={rightScrollbar.handleScroll}
+      >
         {/* Today Section */}
         <div className="bg-white border border-[#efefef] rounded-[16px] p-[16px] flex flex-col gap-[20px]">
           {/* Header */}
