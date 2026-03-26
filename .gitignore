@@ -37,3 +37,6 @@ auth_config.json
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Publish script
+publish.sh

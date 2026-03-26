@@ -17,7 +17,7 @@ function getTargetArchName(arch) {
  */
 const config = {
   appId: 'com.videodb.call-md',
-  productName: 'Call.md',
+  productName: 'call.md',
   directories: {
     output: 'release',
     buildResources: 'resources',
@@ -58,6 +58,7 @@ const config = {
         arch: ['x64', 'arm64'],
       },
     ],
+    artifactName: 'call.md-${version}-${arch}.${ext}',
     category: 'public.app-category.productivity',
     icon: 'resources/icon.icns',
     hardenedRuntime: true,
@@ -65,14 +66,16 @@ const config = {
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
     extendInfo: {
-      NSMicrophoneUsageDescription: 'Call.md needs microphone access to record audio.',
-      NSCameraUsageDescription: 'Call.md needs camera access to record video.',
+      CFBundleDisplayName: 'call.md',
+      CFBundleName: 'call.md',
+      NSMicrophoneUsageDescription: 'call.md needs microphone access to record audio.',
+      NSCameraUsageDescription: 'call.md needs camera access to record video.',
       NSScreenCaptureUsageDescription:
-        'Call.md needs screen capture access to record your screen.',
+        'call.md needs screen capture access to record your screen.',
     },
   },
   dmg: {
-    title: 'Call.md ${version}${arch}',
+    title: 'call.md ${version}${arch}',
     icon: 'resources/icon.icns',
     window: {
       width: 540,

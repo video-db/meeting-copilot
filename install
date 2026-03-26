@@ -1,0 +1,128 @@
+#!/bin/bash
+set -e
+
+# call.md Installer
+# Usage: curl -fsSL https://artifacts.videodb.io/call.md/install | bash
+
+APP_NAME="call.md"
+APP_DIR="/Applications/${APP_NAME}.app"
+BASE_URL="https://artifacts.videodb.io/call.md"
+VERSION="1.0.0"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+info()    { printf "${BLUE}${BOLD}==>${NC} ${BOLD}%s${NC}\n" "$1"; }
+success() { printf "${GREEN}${BOLD}==>${NC} ${BOLD}%s${NC}\n" "$1"; }
+warn()    { printf "${YELLOW}${BOLD}warning:${NC} %s\n" "$1"; }
+error()   { printf "${RED}${BOLD}error:${NC} %s\n" "$1" >&2; exit 1; }
+
+# --- Pre-flight checks ---
+
+if [ "$(uname)" != "Darwin" ]; then
+  error "This installer only supports macOS."
+fi
+
+if ! command -v curl &>/dev/null; then
+  error "curl is required but not found."
+fi
+
+# --- Detect architecture ---
+
+ARCH="$(uname -m)"
+case "$ARCH" in
+  arm64) DMG_FILE="call.md-${VERSION}-arm64.dmg" ;;
+  x86_64) DMG_FILE="call.md-${VERSION}-x64.dmg" ;;
+  *) error "Unsupported architecture: $ARCH" ;;
+esac
+
+DMG_URL="${BASE_URL}/${DMG_FILE}"
+
+echo ""
+printf "${BOLD}  call.md Installer${NC}\n"
+echo "  ─────────────────"
+echo ""
+info "Detected architecture: $ARCH"
+info "Downloading ${DMG_FILE}..."
+
+# --- Download ---
+
+TMP_DIR="$(mktemp -d)"
+TMP_DMG="${TMP_DIR}/${DMG_FILE}"
+
+cleanup() {
+  if [ -d "$TMP_DIR" ]; then
+    # Detach any mounted volume quietly
+    if [ -n "$MOUNT_POINT" ] && [ -d "$MOUNT_POINT" ]; then
+      hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
+    fi
+    rm -rf "$TMP_DIR"
+  fi
+}
+trap cleanup EXIT
+
+curl -fSL --progress-bar "$DMG_URL" -o "$TMP_DMG" || error "Failed to download $DMG_URL"
+
+success "Download complete."
+
+# --- Mount DMG ---
+
+info "Mounting disk image..."
+MOUNT_OUTPUT="$(hdiutil attach "$TMP_DMG" -nobrowse 2>&1)"
+MOUNT_POINT="$(echo "$MOUNT_OUTPUT" | grep -o '/Volumes/.*' | head -1)"
+
+if [ -z "$MOUNT_POINT" ]; then
+  # Fallback: find mount point by listing volumes (case-insensitive)
+  MOUNT_POINT="$(find /Volumes -maxdepth 1 -iname "${APP_NAME}*" -type d 2>/dev/null | head -1)"
+fi
+
+if [ -z "$MOUNT_POINT" ] || [ ! -d "$MOUNT_POINT" ]; then
+  error "Failed to mount disk image."
+fi
+
+# --- Install ---
+
+SOURCE_APP="${MOUNT_POINT}/${APP_NAME}.app"
+if [ ! -d "$SOURCE_APP" ]; then
+  # Try to find the .app in the volume
+  SOURCE_APP="$(find "$MOUNT_POINT" -maxdepth 1 -name "*.app" -type d | head -1)"
+fi
+
+if [ -z "$SOURCE_APP" ] || [ ! -d "$SOURCE_APP" ]; then
+  error "Could not find ${APP_NAME}.app in the disk image."
+fi
+
+if [ -d "$APP_DIR" ]; then
+  warn "Existing installation found. Replacing..."
+  rm -rf "$APP_DIR"
+fi
+
+info "Installing to /Applications..."
+cp -R "$SOURCE_APP" "$APP_DIR" || error "Failed to copy app to /Applications. You may need to run with sudo."
+
+# --- Remove quarantine ---
+
+info "Removing quarantine attribute..."
+xattr -cr "$APP_DIR" 2>/dev/null || true
+
+# --- Cleanup ---
+
+info "Cleaning up..."
+hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
+MOUNT_POINT=""
+
+# --- Done ---
+
+echo ""
+success "call.md has been installed to /Applications!"
+echo ""
+echo "  Next steps:"
+echo "    1. Open call.md from Applications or Spotlight"
+echo "    2. Grant Microphone and Screen Recording permissions when prompted"
+echo "    3. Enter your VideoDB API key (get one at https://console.videodb.io)"
+echo ""
