@@ -12,14 +12,12 @@ import {
   getToolAggregator,
   getResultHandler,
 } from '../services/mcp';
-import { getMeetingCopilot } from '../services/copilot';
 import { getAllMCPServerTemplates, getMCPServerTemplate } from '../config/mcp-server-templates';
 import { getMCPToolCallsByRecording, createMCPToolCall, updateMCPToolCall, getSetting, upsertSetting } from '../db';
 import { getMCPAgent } from '../services/mcp';
 import type {
   CreateMCPServerRequest,
   UpdateMCPServerRequest,
-  MCPDisplayResult,
   MCPOAuthConfig,
 } from '../../shared/types/mcp.types';
 import { v4 as uuid } from 'uuid';
@@ -51,7 +49,6 @@ export function setupMCPHandlers(): void {
   logger.info('Setting up MCP IPC handlers');
 
   const orchestrator = getConnectionOrchestrator();
-  const copilot = getMeetingCopilot();
 
   // Load saved trigger keywords and initialize MCP agent
   try {
@@ -65,22 +62,6 @@ export function setupMCPHandlers(): void {
   } catch (error) {
     logger.warn({ error }, 'Failed to load saved trigger keywords');
   }
-
-  // Forward MCP events from copilot to renderer
-  copilot.on('mcp-result', (data: { result: MCPDisplayResult }) => {
-    logger.info({
-      resultId: data.result.id,
-      toolName: data.result.toolName,
-      displayType: data.result.displayType,
-      hasContent: !!data.result.content,
-      contentPreview: data.result.content?.text?.slice(0, 100),
-    }, 'Forwarding MCP result to renderer');
-    sendToRenderer('mcp:result', data);
-  });
-
-  copilot.on('mcp-error', (data: { serverId: string; toolName: string; error: string }) => {
-    sendToRenderer('mcp:error', data);
-  });
 
   // Forward orchestrator events to renderer
   orchestrator.on('server-connected', (data) => {
