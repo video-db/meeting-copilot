@@ -10,6 +10,15 @@ import type {
   UpcomingMeeting,
 } from '../shared/types/calendar.types';
 
+type NotificationGlobalShim = {
+  permission?: 'default' | 'granted' | 'denied';
+  requestPermission?: () => Promise<'default' | 'granted' | 'denied'>;
+};
+
+function getNotificationGlobal(): NotificationGlobalShim | undefined {
+  return (globalThis as unknown as { Notification?: NotificationGlobalShim }).Notification;
+}
+
 // Copilot event types
 export interface CopilotTranscriptSegment {
   id: string;
@@ -341,10 +350,28 @@ const api: IpcApi = {
     checkMicPermission: () => ipcRenderer.invoke('check-mic-permission'),
     checkScreenPermission: () => ipcRenderer.invoke('check-screen-permission'),
     checkAccessibilityPermission: () => ipcRenderer.invoke('check-accessibility-permission'),
-    checkNotificationPermission: () => ipcRenderer.invoke('check-notification-permission'),
+    checkNotificationPermission: async () => {
+      const notificationApi = getNotificationGlobal();
+      if (notificationApi?.permission) {
+        return notificationApi.permission === 'granted';
+      }
+
+      return ipcRenderer.invoke('check-notification-permission');
+    },
     requestMicPermission: () => ipcRenderer.invoke('request-mic-permission'),
     requestScreenPermission: () => ipcRenderer.invoke('request-screen-permission'),
-    requestNotificationPermission: () => ipcRenderer.invoke('request-notification-permission'),
+    requestNotificationPermission: async () => {
+      const notificationApi = getNotificationGlobal();
+      if (notificationApi?.permission) {
+        if (notificationApi.permission === 'granted') return true;
+        if (notificationApi.permission === 'default' && notificationApi.requestPermission) {
+          const result = await notificationApi.requestPermission();
+          return result === 'granted';
+        }
+      }
+
+      return ipcRenderer.invoke('request-notification-permission');
+    },
     openSystemSettings: (pane: string) => ipcRenderer.invoke('open-system-settings', pane),
     getStatus: (): Promise<PermissionStatus> => ipcRenderer.invoke('get-permission-status'),
   },

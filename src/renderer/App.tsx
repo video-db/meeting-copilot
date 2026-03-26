@@ -14,7 +14,15 @@ import { usePermissions } from './hooks/usePermissions';
 import { useGlobalRecorderEvents } from './hooks/useGlobalRecorderEvents';
 import { useCopilot } from './hooks/useCopilot';
 import { ErrorToast } from './components/ui/error-toast';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, AlertTriangle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from './components/ui/dialog';
 import {
   NudgeToast,
   CallSummaryView,
@@ -22,15 +30,14 @@ import {
 import { useCopilotStore } from './stores/copilot.store';
 import { useMeetingSetupStore } from './stores/meeting-setup.store';
 import { useSessionLifecycle, resetAllSessionStores } from './hooks/useSessionLifecycle';
-import { MCPServersPanel } from './components/settings/MCPServersPanel';
-import { CalendarPanel } from './components/settings/CalendarPanel';
-import { WorkflowsPanel } from './components/settings/WorkflowsPanel';
+import { SettingsView } from './components/settings/SettingsView';
 import { CalendarAuthBanner } from './components/calendar';
 import { MeetingSetupFlow } from './components/meeting-setup';
 import { StepIndicators } from './components/auth/AuthView';
 import { CalendarSetupView } from './components/auth/CalendarSetupView';
 import { RecordingPreferencesView } from './components/auth/RecordingPreferencesView';
 import { RecordingHeader, MetricsBar, LiveAssistPanel, MeetingAgendaPanel } from './components/recording';
+import { useNotificationPermission } from './hooks/useNotificationPermission';
 
 type Tab = 'home' | 'history' | 'settings';
 
@@ -117,32 +124,11 @@ function NotificationIcon({ color = "#969696" }: { color?: string }) {
 function PermissionsView({ onContinue }: { onContinue: () => void }) {
   const { status, requestMicPermission, openSettings, checkPermissions } = usePermissions();
   const configStore = useConfigStore();
-  const [notificationsEnabled, setNotificationsEnabled] = React.useState(false);
-
-  // Check notification permission on mount
-  React.useEffect(() => {
-    const checkNotifications = async () => {
-      try {
-        const enabled = await window.electronAPI.permissions.checkNotificationPermission();
-        setNotificationsEnabled(enabled);
-      } catch {
-        // Ignore errors
-      }
-    };
-    checkNotifications();
-  }, []);
+  const { enabled: notificationsEnabled, openSettings: openNotificationSettings } =
+    useNotificationPermission();
 
   const handleToggleNotifications = async () => {
-    await window.electronAPI.permissions.openSystemSettings('notifications');
-    // Re-check permission after a delay
-    setTimeout(async () => {
-      try {
-        const enabled = await window.electronAPI.permissions.checkNotificationPermission();
-        setNotificationsEnabled(enabled);
-      } catch {
-        // Ignore errors
-      }
-    }, 1000);
+    await openNotificationSettings();
   };
 
   const allGranted = status.microphone && status.screen;
@@ -496,106 +482,6 @@ function RecordingView({ onBack }: RecordingViewProps) {
   );
 }
 
-interface SettingsViewProps {
-  initialTab?: 'account' | 'calendar' | 'mcpServers' | 'workflows' | null;
-  onClearInitialTab?: () => void;
-}
-
-function SettingsView({ initialTab, onClearInitialTab }: SettingsViewProps) {
-  const [activeSettingsTab, setActiveSettingsTab] = useState<
-    'account' | 'calendar' | 'mcpServers' | 'workflows'
-  >(initialTab || 'account');
-  const configStore = useConfigStore();
-
-  // Apply initial tab when it changes
-  React.useEffect(() => {
-    if (initialTab) {
-      setActiveSettingsTab(initialTab);
-      onClearInitialTab?.();
-    }
-  }, [initialTab, onClearInitialTab]);
-
-  const settingsTabs = [
-    { id: 'account' as const, label: 'Account' },
-    { id: 'calendar' as const, label: 'Calendar' },
-    { id: 'mcpServers' as const, label: 'MCP Servers' },
-    { id: 'workflows' as const, label: 'Workflows' },
-  ];
-
-  return (
-    <div className="h-full overflow-auto bg-[#f7f7f7] p-[24px]">
-      <div className="max-w-[720px] mx-auto">
-        {/* Settings Tabs */}
-        <div className="flex gap-[4px] p-[4px] bg-white border border-[#ededf3] rounded-[12px] w-fit mb-[24px]">
-          {settingsTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveSettingsTab(tab.id)}
-              className={`px-[16px] py-[8px] text-[14px] font-medium rounded-[8px] transition-colors ${
-                activeSettingsTab === tab.id
-                  ? 'bg-[#ec5b16] text-white'
-                  : 'text-[#464646] hover:bg-[#f7f7f7]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab Content */}
-        <div className="space-y-[16px]">
-          {activeSettingsTab === 'account' && (
-            <div className="space-y-[16px]">
-              {/* Account Card */}
-              <div className="bg-white border border-[#ededf3] rounded-[12px] shadow-[0px_1.272px_15.267px_0px_rgba(0,0,0,0.05)]">
-                <div className="px-[20px] py-[16px] border-b border-[#ededf3]">
-                  <h3 className="text-[16px] font-semibold text-[#141420]">Account</h3>
-                </div>
-                <div className="px-[20px] py-[16px] space-y-[16px]">
-                  <div>
-                    <p className="text-[13px] text-[#969696] mb-[4px]">Name</p>
-                    <p className="text-[14px] font-medium text-[#141420]">
-                      {configStore.userName || 'Not set'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[13px] text-[#969696] mb-[4px]">API Key</p>
-                    <p className="text-[13px] font-mono text-[#464646]">
-                      {configStore.apiKey ? `${configStore.apiKey.slice(0, 8)}...` : 'Not set'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* About Card */}
-              <div className="bg-white border border-[#ededf3] rounded-[12px] shadow-[0px_1.272px_15.267px_0px_rgba(0,0,0,0.05)]">
-                <div className="px-[20px] py-[16px] border-b border-[#ededf3]">
-                  <h3 className="text-[16px] font-semibold text-[#141420]">About</h3>
-                </div>
-                <div className="px-[20px] py-[16px] space-y-[8px]">
-                  <p className="text-[14px] text-[#464646] leading-[20px]">
-                    Call.md is a desktop app for recording meetings with real-time
-                    transcription and AI-powered insights.
-                  </p>
-                  <p className="text-[13px] text-[#969696]">
-                    Built with Electron, React, and VideoDB.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeSettingsTab === 'calendar' && <CalendarPanel />}
-
-          {activeSettingsTab === 'mcpServers' && <MCPServersPanel />}
-
-          {activeSettingsTab === 'workflows' && <WorkflowsPanel />}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [showRecordingPrefs, setShowRecordingPrefs] = useState(false);
@@ -607,11 +493,66 @@ export function App() {
   // Recording ID to navigate to after recording ends
   const [pendingRecordingNavigation, setPendingRecordingNavigation] = useState<number | null>(null);
   // Settings tab to show when navigating to settings
-  const [initialSettingsTab, setInitialSettingsTab] = useState<'account' | 'calendar' | 'mcpServers' | 'workflows' | null>(null);
+  const [initialSettingsTab, setInitialSettingsTab] = useState<'account' | 'notifications' | 'mcpServers' | 'workflows' | null>(null);
+  // Pending tab change when user needs to confirm discarding meeting setup
+  const [pendingTabChange, setPendingTabChange] = useState<Tab | null>(null);
 
   const configStore = useConfigStore();
   const sessionStore = useSessionStore();
   const meetingSetupStore = useMeetingSetupStore();
+
+  // Check if meeting setup has any user-entered data
+  const hasMeetingSetupData = () => {
+    return (
+      meetingSetupStore.name.trim().length > 0 ||
+      meetingSetupStore.description.trim().length > 0 ||
+      meetingSetupStore.questions.length > 0 ||
+      meetingSetupStore.checklist.length > 0
+    );
+  };
+
+  // Handle tab change with meeting setup check
+  const handleTabChange = (tab: Tab) => {
+    // If we're in meeting setup mode and trying to navigate away
+    if (showMeetingSetup && activeTab === 'home' && tab !== 'home') {
+      if (hasMeetingSetupData()) {
+        // Has data - show confirmation
+        setPendingTabChange(tab);
+        return;
+      }
+      // No data - just close and navigate
+      setShowMeetingSetup(false);
+      meetingSetupStore.reset();
+    }
+
+    // If clicking home while meeting setup is showing (no data), clear it
+    if (showMeetingSetup && tab === 'home') {
+      if (!hasMeetingSetupData()) {
+        setShowMeetingSetup(false);
+        meetingSetupStore.reset();
+      }
+      // If has data and clicking home, just show the dashboard
+      setShowMeetingSetup(false);
+      meetingSetupStore.reset();
+    }
+
+    setActiveTab(tab);
+  };
+
+  // Confirm discarding meeting setup and navigate
+  const confirmDiscardMeetingSetup = () => {
+    if (pendingTabChange) {
+      setShowMeetingSetup(false);
+      meetingSetupStore.reset();
+      setActiveTab(pendingTabChange);
+      setPendingTabChange(null);
+    }
+  };
+
+  // Cancel discarding meeting setup
+  const cancelDiscardMeetingSetup = () => {
+    setPendingTabChange(null);
+  };
   const { status: sessionStatus, startRecording, stopRecording } = useSession();
   const { allGranted, loading: permissionsLoading, checkPermissions } = usePermissions();
   const { prepareNewSession, prepareNewSessionWithInfo, waitForIdle } = useSessionLifecycle();
@@ -891,7 +832,7 @@ export function App() {
       {/* Main layout below titlebar */}
       <div className="flex flex-1 overflow-hidden">
         {isAuthenticated && !isSetupFlow && (
-          <NewSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          <NewSidebar activeTab={activeTab} onTabChange={handleTabChange} />
         )}
         <div className="flex-1 overflow-hidden">{renderContent()}</div>
       </div>
@@ -903,6 +844,41 @@ export function App() {
         onDismiss={handleDismissError}
         position="bottom"
       />
+
+      {/* Discard Meeting Setup Confirmation Dialog */}
+      <Dialog open={pendingTabChange !== null} onOpenChange={(open) => !open && cancelDiscardMeetingSetup()}>
+        <DialogContent className="max-w-[400px]">
+          <DialogHeader>
+            <div className="flex items-center gap-[12px]">
+              <div className="w-[40px] h-[40px] bg-[rgba(209,36,47,0.1)] rounded-[10px] flex items-center justify-center">
+                <AlertTriangle className="w-[20px] h-[20px] text-[#d1242f]" />
+              </div>
+              <div>
+                <DialogTitle className="text-[16px] font-semibold text-[#141420]">
+                  Discard meeting setup?
+                </DialogTitle>
+              </div>
+            </div>
+            <DialogDescription className="text-[14px] text-[#464646] mt-[12px]">
+              You have unsaved changes in your meeting setup. If you leave now, your progress will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-[8px] mt-[16px]">
+            <button
+              onClick={cancelDiscardMeetingSetup}
+              className="flex-1 px-[16px] py-[10px] border border-[#ededf3] rounded-[10px] text-[14px] font-medium text-[#464646] hover:bg-[#f7f7f7] transition-colors"
+            >
+              Keep editing
+            </button>
+            <button
+              onClick={confirmDiscardMeetingSetup}
+              className="flex-1 px-[16px] py-[10px] bg-[#d1242f] hover:bg-[#b91c1c] rounded-[10px] text-[14px] font-medium text-white transition-colors"
+            >
+              Discard
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

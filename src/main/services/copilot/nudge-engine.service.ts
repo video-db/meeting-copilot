@@ -14,7 +14,6 @@ const log = logger.child({ module: 'nudge-engine' });
 // Types
 
 export type NudgeType =
-  | 'monologue'
   | 'talk_ratio'
   | 'next_steps'
   | 'questions'
@@ -47,19 +46,6 @@ const NUDGE_TEMPLATES: Record<NudgeType, Array<{
   actionLabel?: string;
   actionType?: Nudge['actionType'];
 }>> = {
-  monologue: [
-    {
-      message: "You've been speaking for a while — a question could help engage them",
-      severity: 'medium',
-      actionLabel: 'Suggest question',
-      actionType: 'ask_question',
-    },
-    {
-      message: 'Extended speaking stretch detected — consider a pause point',
-      severity: 'low',
-      actionType: 'pause',
-    },
-  ],
   talk_ratio: [
     {
       message: 'Talk ratio is leaning towards you — balance with more listening',
@@ -133,7 +119,6 @@ export class NudgeEngineService {
 
     // Priority-ordered checks
     const nudge =
-      this.checkMonologue(metrics) ||
       this.checkTalkRatio(metrics) ||
       this.checkQuestions(metrics, callDuration) ||
       this.checkPace(metrics) ||
@@ -147,16 +132,6 @@ export class NudgeEngineService {
       return nudge;
     }
 
-    return null;
-  }
-
-  /**
-   * Check for monologue
-   */
-  private checkMonologue(metrics: ConversationMetrics): Nudge | null {
-    if (metrics.monologueDetected || metrics.longestMonologue > 60) {
-      return this.createNudge('monologue');
-    }
     return null;
   }
 

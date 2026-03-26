@@ -1,6 +1,5 @@
-import fixPath from 'fix-path';
-
-fixPath();
+// fix-path v5 is ESM-only; use dynamic import() from CJS
+import('fix-path').then((mod) => (mod.default ?? mod)());
 
 import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
