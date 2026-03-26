@@ -278,14 +278,6 @@ function generateMetricsMarkdown(data: MeetingExportData): string {
     lines.push('');
     lines.push(`- **Words per minute:** ${data.metrics.pace}`);
     lines.push('');
-
-    lines.push('## Engagement');
-    lines.push('');
-    lines.push(`- **Questions asked:** ${data.metrics.questionsAsked}`);
-    if (data.metrics.monologueDetected) {
-      lines.push(`- **Monologue detected:** Yes`);
-    }
-    lines.push('');
   } else {
     lines.push('*No metrics available*');
   }

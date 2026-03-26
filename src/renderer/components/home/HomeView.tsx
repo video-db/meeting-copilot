@@ -14,6 +14,7 @@ import { Loader2 } from 'lucide-react';
 import { trpc } from '../../api/trpc';
 import { useMCP } from '../../hooks/useMCP';
 import { useSessionStore } from '../../stores/session.store';
+import { useNotificationPermission } from '../../hooks/useNotificationPermission';
 import { RecordingCard } from '../history/RecordingCard';
 import { RecordingDetailPage } from '../history/RecordingDetailPage';
 import type { UpcomingMeeting } from '../../../shared/types/calendar.types';
@@ -254,6 +255,64 @@ function GoogleIcon() {
   );
 }
 
+// Confirmation Dialog Component
+function ConfirmationDialog({
+  isOpen,
+  title,
+  message,
+  confirmText,
+  cancelText,
+  onConfirm,
+  onCancel,
+  variant = 'danger',
+}: {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  variant?: 'danger' | 'default';
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={onCancel}
+      />
+      {/* Dialog */}
+      <div className="relative bg-white rounded-[16px] p-[24px] w-[400px] shadow-[0px_4px_24px_0px_rgba(0,0,0,0.15)] flex flex-col gap-[20px]">
+        <div className="flex flex-col gap-[8px]">
+          <h3 className="text-[18px] font-semibold text-[#141420]">{title}</h3>
+          <p className="text-[14px] text-[#464646] leading-[20px]">{message}</p>
+        </div>
+        <div className="flex gap-[12px] justify-end">
+          <button
+            onClick={onCancel}
+            className="px-[16px] py-[10px] rounded-[10px] border border-[#e4e4ec] text-[14px] font-medium text-[#464646] hover:bg-[#f7f7f7] transition-colors"
+          >
+            {cancelText}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`px-[16px] py-[10px] rounded-[10px] text-[14px] font-medium text-white transition-colors ${
+              variant === 'danger'
+                ? 'bg-[#dc2626] hover:bg-[#b91c1c]'
+                : 'bg-[#ec5b16] hover:bg-[#d4510f]'
+            }`}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Toggle Component
 function Toggle({
   enabled,
@@ -426,7 +485,7 @@ function WorkflowItem({
 interface HomeViewProps {
   onStartRecording: () => void;
   onNavigateToHistory: () => void;
-  onNavigateToSettings: (tab?: 'account' | 'calendar' | 'mcpServers' | 'workflows') => void;
+  onNavigateToSettings: (tab?: 'account' | 'notifications' | 'mcpServers' | 'workflows') => void;
 }
 
 interface WorkflowData {
@@ -442,7 +501,9 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingMeeting[]>([]);
   const [eventNotifications, setEventNotifications] = useState<Record<string, boolean>>({});
   const [workflows, setWorkflows] = useState<WorkflowData[]>([]);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const { enabled: notificationsEnabled, openSettings: openNotificationSettings } =
+    useNotificationPermission();
 
   // Auto-hide scrollbars
   const leftScrollbar = useAutoHideScrollbar();
@@ -524,31 +585,8 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
     return () => unsubscribe();
   }, []);
 
-  // Check notification permission
-  useEffect(() => {
-    const checkNotifications = async () => {
-      try {
-        const enabled = await window.electronAPI.permissions.checkNotificationPermission();
-        setNotificationsEnabled(enabled);
-      } catch {
-        // Ignore errors
-      }
-    };
-    checkNotifications();
-  }, []);
-
   const handleToggleNotifications = async () => {
-    // Open system settings for notifications
-    await window.electronAPI.permissions.openSystemSettings('notifications');
-    // Re-check permission after a delay (user may have changed it)
-    setTimeout(async () => {
-      try {
-        const enabled = await window.electronAPI.permissions.checkNotificationPermission();
-        setNotificationsEnabled(enabled);
-      } catch {
-        // Ignore errors
-      }
-    }, 1000);
+    await openNotificationSettings();
   };
 
   // Load workflows
@@ -586,6 +624,7 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
       await window.electronAPI.calendar.signOut();
       setCalendarStatus('disconnected');
       setUpcomingEvents([]);
+      setShowDisconnectConfirm(false);
     } catch {
       // Ignore errors
     }
@@ -611,7 +650,7 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
         <div className="flex flex-col gap-[30px] w-full">
           {/* Dashboard Header with Start Recording button */}
           <div className="flex items-center justify-between">
-            <h1 className="text-[22px] font-semibold text-black tracking-[0.11px]">
+            <h1 className="text-[28px] font-semibold text-black tracking-tight">
               Dashboard
             </h1>
             <button
@@ -732,7 +771,7 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
             <span className="flex-1 text-[18px] font-medium text-black">Today</span>
             {calendarStatus === 'connected' && (
               <button
-                onClick={handleDisconnectCalendar}
+                onClick={() => setShowDisconnectConfirm(true)}
                 className="flex items-center gap-[4px] text-[14px] font-semibold text-[#ec5b16] hover:opacity-80"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -892,6 +931,18 @@ export function HomeView({ onStartRecording, onNavigateToHistory, onNavigateToSe
           )}
         </div>
       </div>
+
+      {/* Disconnect Calendar Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showDisconnectConfirm}
+        title="Disconnect Calendar"
+        message="Are you sure you want to disconnect your Google Calendar? You won't receive meeting reminders until you reconnect."
+        confirmText="Disconnect"
+        cancelText="Cancel"
+        onConfirm={handleDisconnectCalendar}
+        onCancel={() => setShowDisconnectConfirm(false)}
+        variant="danger"
+      />
     </div>
   );
 }

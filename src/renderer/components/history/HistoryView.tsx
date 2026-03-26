@@ -127,7 +127,7 @@ export function HistoryView({ initialSelectedRecordingId, onClearInitialSelectio
             <RefreshCw className="h-6 w-6 animate-spin text-[#969696]" />
           </div>
         ) : filteredRecordings.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-[#6b6b6b]">
+          <div className="flex flex-col items-center justify-center h-full text-[#6b6b6b]">
             <Inbox className="h-12 w-12 mb-3 text-[#c0c0c0]" />
             {searchQuery ? (
               <>

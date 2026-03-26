@@ -80,13 +80,12 @@ export function setupPermissionHandlers(): void {
   });
 
   ipcMain.handle('check-notification-permission', async (): Promise<boolean> => {
+    // Main process can't reliably read per-origin Notification.permission.
+    // Renderer checks real permission state; this handler is only a fallback.
     if (process.platform !== 'darwin') return true;
 
-    // On macOS, check if notifications are enabled
-    // Notification.isSupported() checks if the system supports notifications
-    // We return true if supported, as macOS doesn't have a direct API to check permission
-    const { Notification } = await import('electron');
-    return Notification.isSupported();
+    logger.debug('Notification permission check fallback used');
+    return false;
   });
 
   ipcMain.handle('request-notification-permission', async (): Promise<boolean> => {
