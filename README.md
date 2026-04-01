@@ -48,7 +48,7 @@ curl -fsSL https://artifacts.videodb.io/call.md/install | bash
 ```
 
 <p>
-  <em>Currently available for macOS — Windows and Linux support coming soon</em>
+  <em>Currently available for macOS and Windows — Linux support coming soon</em>
 </p>
 
 After installation:
